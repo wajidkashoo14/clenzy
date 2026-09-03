@@ -8,7 +8,7 @@ A production-grade laundry, dry-cleaning, and home/fabric-care platform for Srin
 
 **Operations** run the business from an admin dashboard: order queues and daily dispatch rosters, agent assignment, post-inspection re-itemization and price revision, cancellations and refunds, catalog and pricing management, coupons, service areas (including a one-click "pause area" for snow closures), slot capacity, staff, reviews, leads, content, and reports.
 
-**Stack:** Next.js 15 + React 19 + TypeScript + Tailwind (web) · Express 5 + TypeScript + Mongoose (API) · MongoDB Atlas · Razorpay · MSG91 · Resend · Google Maps · Cloudinary · Sentry · Vercel + Railway.
+**Stack:** Next.js 16 + React 19 + TypeScript + Tailwind (web) · Express 5 + TypeScript + Mongoose (API) · MongoDB Atlas · Razorpay · MSG91 · Resend · Google Maps · Cloudinary · Sentry · Vercel + Railway.
 
 **Differentiator vs. the reference site:** the reference (wewash.co.in) appears to run on a lead-capture-and-quote model (form, phone, or WhatsApp, with pricing confirmed later). Clenzy builds the full self-serve cart-and-checkout flow _while keeping_ an admin-adjustable final price, so ops can still correct the estimate after physically inspecting garments. That's the honest way to offer transparent online pricing in a business where the price genuinely depends on the item.
 

@@ -1,0 +1,65 @@
+/**
+ * Design tokens — the single source of color, radius, shadow, and motion
+ * values for the whole app. See docs/DESIGN_SYSTEM.md §2–4 and
+ * docs/ANIMATION_SYSTEM.md §3. Never hardcode a hex value or a raw
+ * duration/easing in a component — reference these tokens (via the Tailwind
+ * utilities they're wired into in globals.css, or via lib/motion.ts for
+ * Framer Motion).
+ *
+ * Light-only for MVP (see DESIGN_SYSTEM.md §2) — but every color lives here
+ * as a token specifically so a future dark mode is a token swap, not a
+ * component-wide refactor.
+ */
+:root {
+  /* Color — core palette */
+  --color-primary: #14524a;
+  --color-primary-hover: #0f423b;
+  --color-primary-soft: #e6efec;
+  --color-secondary: #2c5f7c;
+  --color-secondary-soft: #e8f0f4;
+  --color-accent: #d98f2b;
+  --color-accent-soft: #fbf0de;
+  --color-bg: #faf8f4;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f3f0ea;
+  --color-border: #e4dfd6;
+  --color-border-strong: #cfc8bb;
+  --color-text: #20211e;
+  --color-text-muted: #6b675e;
+  --color-text-inverse: #faf8f4;
+
+  /* Color — semantic */
+  --color-success: #2f8f5b;
+  --color-success-soft: #e4f2ea;
+  --color-warning: #c98a15;
+  --color-warning-soft: #fbf1dc;
+  --color-error: #c13f3f;
+  --color-error-soft: #f8e5e5;
+  --color-info: #2c5f7c;
+  --color-info-soft: #e8f0f4;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+
+  /* Shadow — soft, warm-tinted, never pure black */
+  --shadow-sm: 0 1px 2px rgba(32, 33, 30, 0.05);
+  --shadow-md: 0 4px 12px rgba(32, 33, 30, 0.07);
+  --shadow-lg: 0 12px 32px rgba(32, 33, 30, 0.1);
+  --shadow-focus: 0 0 0 3px rgba(217, 143, 43, 0.35);
+
+  /* Motion — durations (ms, for CSS transitions) */
+  --duration-instant: 100ms;
+  --duration-fast: 160ms;
+  --duration-base: 240ms;
+  --duration-slow: 360ms;
+  --duration-slower: 520ms;
+
+  /* Motion — easing */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+}

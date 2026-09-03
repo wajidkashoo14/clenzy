@@ -18,7 +18,7 @@ Realistic solo-developer estimate with AI assistance: **10–14 weeks to MVP lau
 ## PHASE 1 — Project setup
 
 **Objective:** a running monorepo skeleton deployed to staging on day one, so deployment is never a late surprise.
-**Tasks:** `git init`, GitHub repo, branch protection · npm workspaces with `apps/web`, `apps/api`, `packages/shared` · TypeScript strict mode everywhere · ESLint + Prettier + Husky + lint-staged · Next.js 15 app scaffolded, Tailwind configured · Express 5 + TypeScript scaffolded with `/health` · Mongoose connection with retry, Atlas dev cluster · Zod-validated env config that crashes on missing values · error-handling middleware, `AppError` class, request-id and logging (pino) · `.env.example` · GitHub Actions CI (typecheck, lint, build) · deploy web to Vercel and api to Railway.
+**Tasks:** `git init`, GitHub repo, branch protection · npm workspaces with `apps/web`, `apps/api`, `packages/shared` · TypeScript strict mode everywhere · ESLint + Prettier + Husky + lint-staged · Next.js 16 app scaffolded, Tailwind configured · Express 5 + TypeScript scaffolded with `/health` · Mongoose connection with retry, Atlas dev cluster · Zod-validated env config that crashes on missing values · error-handling middleware, `AppError` class, request-id and logging (pino) · `.env.example` · GitHub Actions CI (typecheck, lint, build) · deploy web to Vercel and api to Railway.
 **Dependencies:** none.
 **Testing:** CI green; `/health` reachable in production; the deployed web app can call the deployed API.
 **Definition of done:** both apps deploy automatically from `main`; a developer can clone, `npm install`, and run both locally with one command.
