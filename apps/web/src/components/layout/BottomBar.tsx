@@ -1,6 +1,5 @@
 'use client';
 
-import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -10,7 +9,13 @@ import { cn } from '@/lib/cn';
 export interface BottomBarItem {
   label: string;
   href: string;
-  icon: LucideIcon;
+  /**
+   * A pre-rendered icon element (e.g. `<Home className="size-5" aria-hidden="true" />`),
+   * not a component reference — this crosses the Server→Client Component
+   * boundary (this component is 'use client'), and only rendered elements
+   * and plain data survive that; raw function/component references don't.
+   */
+  icon: ReactNode;
   badge?: number;
 }
 
@@ -38,7 +43,6 @@ export function BottomBar({ items, hidden = false }: BottomBarProps): ReactNode 
       {items.map((item) => {
         const isActive =
           pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
-        const Icon = item.icon;
 
         return (
           <Link
@@ -52,7 +56,7 @@ export function BottomBar({ items, hidden = false }: BottomBarProps): ReactNode 
             )}
           >
             <span className="relative">
-              <Icon className="size-5" aria-hidden="true" />
+              {item.icon}
               {item.badge !== undefined && item.badge > 0 && (
                 <span
                   className="bg-accent text-text absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums"

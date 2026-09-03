@@ -10,6 +10,7 @@ import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import { sanitizeRequest } from './middlewares/sanitize.js';
+import { formsRouter } from './routes/forms.route.js';
 import { healthRouter } from './routes/health.route.js';
 
 export function createApp(): Express {
@@ -59,6 +60,7 @@ export function createApp(): Express {
   );
 
   app.use('/api/v1', healthRouter);
+  app.use('/api/v1', formsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -545,11 +545,28 @@ export function ComponentGallery(): ReactNode {
 
       <BottomBar
         items={[
-          { label: 'Home', href: '#', icon: Home },
-          { label: 'Services', href: '#services', icon: Sparkles },
-          { label: 'Cart', href: '#cart', icon: ShoppingCart, badge: 3 },
-          { label: 'Orders', href: '#orders', icon: Package },
-          { label: 'Account', href: '#account', icon: UserIcon },
+          { label: 'Home', href: '#', icon: <Home className="size-5" aria-hidden="true" /> },
+          {
+            label: 'Services',
+            href: '#services',
+            icon: <Sparkles className="size-5" aria-hidden="true" />,
+          },
+          {
+            label: 'Cart',
+            href: '#cart',
+            icon: <ShoppingCart className="size-5" aria-hidden="true" />,
+            badge: 3,
+          },
+          {
+            label: 'Orders',
+            href: '#orders',
+            icon: <Package className="size-5" aria-hidden="true" />,
+          },
+          {
+            label: 'Account',
+            href: '#account',
+            icon: <UserIcon className="size-5" aria-hidden="true" />,
+          },
         ]}
       />
     </TooltipProvider>
