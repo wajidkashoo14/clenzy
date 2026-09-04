@@ -1,22 +1,48 @@
 'use client';
 
-import type { PricingGroupPayload } from '@clenzy/shared';
+import type { PricingGroupPayload, ServiceItemPayload } from '@clenzy/shared';
 import { Search } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { formatRupees } from '@/lib/format';
+import { ItemRow } from '@/components/cart/ItemRow';
+import { removeWithUndo } from '@/features/cart/undoRemove';
+import { useCartStore } from '@/stores/cartStore';
 
 /**
  * Search overrides the category-tabbed browse view with a single flat,
  * matched-items table — the "item picker" search task from
- * docs/DEVELOPMENT_PLAN.md Phase 5. Quantity steppers aren't included here:
- * without a cart to add to yet (Phase 6), a stepper would have no action to
- * drive — it lands once "add to cart" exists.
+ * docs/DEVELOPMENT_PLAN.md Phase 5, now with the quantity-stepper "add to
+ * cart" affordance from Phase 6 (deferred there originally since there was
+ * no cart yet for it to act on).
  */
 export function PriceListSearch({ groups }: { groups: PricingGroupPayload[] }): ReactNode {
   const [query, setQuery] = useState('');
   const trimmedQuery = query.trim().toLowerCase();
+  const lines = useCartStore((state) => state.lines);
+  const addItem = useCartStore((state) => state.addItem);
+  const updateQuantity = useCartStore((state) => state.updateQuantity);
+
+  function quantityFor(itemId: string): number {
+    return lines.find((l) => l.serviceItemId === itemId)?.quantity ?? 0;
+  }
+
+  function handleQuantityChange(item: ServiceItemPayload, quantity: number): void {
+    const current = quantityFor(item.id);
+    if (quantity <= 0) {
+      const line = lines.find((l) => l.serviceItemId === item.id);
+      if (line) removeWithUndo(line);
+      return;
+    }
+    if (current === 0) {
+      addItem(
+        { serviceItemId: item.id, name: item.name, unit: item.unit, careNote: item.careNote },
+        quantity,
+      );
+    } else {
+      updateQuantity(item.id, quantity);
+    }
+  }
 
   const searchResults = useMemo(() => {
     if (!trimmedQuery) return null;
@@ -51,28 +77,24 @@ export function PriceListSearch({ groups }: { groups: PricingGroupPayload[] }): 
               No items match &ldquo;{query.trim()}&rdquo;.
             </p>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-surface-alt">
-                <tr>
-                  <th className="text-text px-4 py-3 text-left font-semibold">Item</th>
-                  <th className="text-text px-4 py-3 text-right font-semibold">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {searchResults.map(({ item, categoryName }, i) => (
-                  <tr key={item.id} className={i % 2 === 1 ? 'bg-surface-alt' : 'bg-surface'}>
-                    <td className="text-text px-4 py-3">
-                      {item.name}
-                      <span className="text-text-muted block text-[13px]">{categoryName}</span>
-                    </td>
-                    <td className="text-text px-4 py-3 text-right font-medium tabular-nums">
-                      {formatRupees(item.price)}{' '}
-                      <span className="text-text-muted">/ {item.unit}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="divide-border divide-y">
+              {searchResults.map(({ item, categoryName }) => (
+                <div key={item.id}>
+                  <p className="text-text-muted bg-surface-alt px-4 pt-2 text-[11px] font-medium tracking-wide uppercase">
+                    {categoryName}
+                  </p>
+                  <ItemRow
+                    name={item.name}
+                    careNote={item.careNote}
+                    unit={item.unit}
+                    unitPrice={item.price}
+                    quantity={quantityFor(item.id)}
+                    max={item.maxQuantity}
+                    onQuantityChange={(quantity) => handleQuantityChange(item, quantity)}
+                  />
+                </div>
+              ))}
+            </div>
           )}
         </div>
       ) : (
@@ -87,26 +109,19 @@ export function PriceListSearch({ groups }: { groups: PricingGroupPayload[] }): 
 
           {groups.map(({ category, items }) => (
             <TabsContent key={category.slug} value={category.slug}>
-              <div className="border-border overflow-hidden rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead className="bg-surface-alt">
-                    <tr>
-                      <th className="text-text px-4 py-3 text-left font-semibold">Item</th>
-                      <th className="text-text px-4 py-3 text-right font-semibold">Price</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item, i) => (
-                      <tr key={item.slug} className={i % 2 === 1 ? 'bg-surface-alt' : 'bg-surface'}>
-                        <td className="text-text px-4 py-3">{item.name}</td>
-                        <td className="text-text px-4 py-3 text-right font-medium tabular-nums">
-                          {formatRupees(item.price)}{' '}
-                          <span className="text-text-muted">/ {item.unit}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="border-border divide-border divide-y overflow-hidden rounded-lg border">
+                {items.map((item) => (
+                  <ItemRow
+                    key={item.slug}
+                    name={item.name}
+                    careNote={item.careNote}
+                    unit={item.unit}
+                    unitPrice={item.price}
+                    quantity={quantityFor(item.id)}
+                    max={item.maxQuantity}
+                    onQuantityChange={(quantity) => handleQuantityChange(item, quantity)}
+                  />
+                ))}
               </div>
             </TabsContent>
           ))}

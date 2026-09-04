@@ -23,7 +23,7 @@ export interface ServiceItemDocument {
   sortOrder: number;
   isActive: boolean;
   isPopular: boolean;
-  availableInAreas: Schema.Types.ObjectId[];
+  availableInAreas: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }

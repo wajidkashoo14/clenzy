@@ -134,6 +134,21 @@ body {
   }
 }
 
+/* Cart badge bump — retriggered by changing the badge's `key` to the count
+   (forces a DOM remount so the animation replays), not AnimatePresence —
+   see the comment on Modal.tsx for why that's avoided here. */
+@keyframes cart-badge-bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 /* MobileNav drawer — same CSS/data-state pattern as the Modal keyframes above. */
 @keyframes drawer-in {
   from {

@@ -4,9 +4,9 @@ import { notFound } from 'next/navigation';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { Container } from '@/components/layout/Container';
+import { ServiceItemList } from '@/components/marketing/ServiceItemList';
 import { brand } from '@/content/brand';
 import { getCategories, getCategoryBySlug } from '@/lib/catalog-api';
-import { formatRupees } from '@/lib/format';
 import { renderIcon } from '@/lib/icons';
 import { breadcrumbJsonLd, buildMetadata, JsonLd, serviceJsonLd } from '@/lib/seo';
 
@@ -81,32 +81,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
           )}
         </div>
 
-        <div className="border-border mt-10 overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-alt">
-              <tr>
-                <th className="text-text px-4 py-3 text-left font-semibold">Item</th>
-                <th className="text-text px-4 py-3 text-right font-semibold">Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, i) => (
-                <tr key={item.slug} className={i % 2 === 1 ? 'bg-surface-alt' : 'bg-surface'}>
-                  <td className="text-text px-4 py-3">
-                    {item.name}
-                    {item.careNote && (
-                      <span className="text-text-muted block text-[13px]">{item.careNote}</span>
-                    )}
-                  </td>
-                  <td className="text-text px-4 py-3 text-right font-medium tabular-nums">
-                    {formatRupees(item.price)}
-                    <span className="text-text-muted ml-1">/ {item.unit}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ServiceItemList items={items} />
 
         <p className="text-text-muted mt-4 text-[13px]">
           Prices shown are estimates. Our team confirms the exact total after inspecting your items

@@ -202,8 +202,6 @@ export function ComponentGallery(): ReactNode {
         navItems={SAMPLE_NAV}
         phone="+91 90000 00000"
         whatsappHref="https://wa.me/919000000000"
-        cartHref="#"
-        cartCount={3}
         accountHref="#"
         bookingHref="#"
         mobileNavGroups={SAMPLE_MOBILE_GROUPS}

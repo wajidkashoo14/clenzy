@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/stores/authStore';
+import { useCartStore } from '@/stores/cartStore';
 import { cn } from '@/lib/cn';
 import { transitions } from '@/lib/motion';
 import type { NavGroup, NavLink } from './MobileNav';
@@ -25,8 +26,6 @@ export interface HeaderProps {
   navItems: HeaderNavItem[];
   phone: string;
   whatsappHref: string;
-  cartHref: string;
-  cartCount?: number;
   accountHref: string;
   bookingHref: string;
   mobileNavGroups: NavGroup[];
@@ -43,8 +42,6 @@ export function Header({
   navItems,
   phone,
   whatsappHref,
-  cartHref,
-  cartCount = 0,
   accountHref,
   bookingHref,
   mobileNavGroups,
@@ -55,6 +52,8 @@ export function Header({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { scrollY } = useScroll();
   const user = useAuthStore((state) => state.user);
+  const cartCount = useCartStore((state) => state.itemCount());
+  const openCartDrawer = useCartStore((state) => state.openDrawer);
 
   useMotionValueEvent(scrollY, 'change', (y) => {
     if (transparentAtTop) setIsSolid(y > SOLIDIFY_THRESHOLD_PX);
@@ -124,21 +123,23 @@ export function Header({
               {phone}
             </a>
 
-            <Link
-              href={cartHref}
+            <button
+              type="button"
+              onClick={openCartDrawer}
               aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ''}`}
               className="text-text duration-fast ease-standard hover:bg-surface-alt focus-visible:shadow-focus relative flex size-10 items-center justify-center rounded-full transition-colors focus-visible:outline-none"
             >
               <ShoppingCart className="size-5" aria-hidden="true" />
               {cartCount > 0 && (
                 <span
-                  className="bg-accent text-text absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums"
+                  key={cartCount}
+                  className="bg-accent text-text absolute top-1 right-1 flex h-4 min-w-4 animate-[cart-badge-bump_var(--duration-base)_var(--ease-standard)] items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums"
                   aria-hidden="true"
                 >
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>
               )}
-            </Link>
+            </button>
 
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
               <Link href={user ? accountHref : '/login'}>

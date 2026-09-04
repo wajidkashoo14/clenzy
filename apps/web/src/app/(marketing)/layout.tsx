@@ -9,6 +9,8 @@ import { TooltipProvider } from '@/components/ui/Tooltip';
 import { brand } from '@/content/brand';
 import { SERVICE_CATEGORIES } from '@/content/services';
 import { AuthSessionInit } from '@/features/auth/AuthSessionInit';
+import { CartDrawer } from '@/features/cart/CartDrawer';
+import { CartEstimateSync } from '@/features/cart/CartEstimateSync';
 
 const NAV_ITEMS = [
   { label: 'Services', menuContent: <ServicesMegaMenu /> },
@@ -109,14 +111,15 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
       <AuthSessionInit />
+      <CartEstimateSync />
       <Toaster />
+      <CartDrawer />
 
       <MarketingChrome
         logo={<span className="font-heading text-primary text-xl font-semibold">{brand.name}</span>}
         navItems={NAV_ITEMS}
         phone={brand.phone}
         whatsappHref={brand.whatsappHref}
-        cartHref="/cart"
         accountHref="/account"
         bookingHref="/book"
         mobileNavGroups={MOBILE_NAV_GROUPS}

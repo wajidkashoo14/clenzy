@@ -10,7 +10,6 @@ export interface MarketingChromeProps {
   navItems: HeaderNavItem[];
   phone: string;
   whatsappHref: string;
-  cartHref: string;
   accountHref: string;
   bookingHref: string;
   mobileNavGroups: NavGroup[];
