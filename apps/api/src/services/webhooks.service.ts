@@ -4,6 +4,7 @@ import { razorpayAdapter } from '../integrations/razorpay/index.js';
 import { Order } from '../models/Order.js';
 import { Payment } from '../models/Payment.js';
 import { WebhookEvent } from '../models/WebhookEvent.js';
+import { changeStatus } from './orderStatus.service.js';
 import { verifyWebhookSignature } from '../utils/razorpaySignature.js';
 
 export interface RazorpayPaymentEntity {
@@ -90,15 +91,8 @@ export async function handlePaymentCaptured(entity: RazorpayPaymentEntity): Prom
   await payment.save();
 
   order.paymentStatus = 'paid';
-  order.status = 'PLACED';
   order.pricing.amountPaid = entity.amount;
-  order.statusHistory.push({
-    status: 'PLACED',
-    changedByRole: 'system',
-    note: 'Payment captured',
-    at: new Date(),
-  });
-  await order.save();
+  await changeStatus(order, 'PLACED', 'system', { note: 'Payment captured' });
 }
 
 /** Exported for the reconciliation job — see jobs/reconcilePayments.ts. */

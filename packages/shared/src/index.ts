@@ -10,3 +10,5 @@ export * from './schemas/slots.js';
 export * from './schemas/coupons.js';
 export * from './schemas/orders.js';
 export * from './schemas/payments.js';
+export * from './schemas/adminOrders.js';
+export * from './schemas/agent.js';

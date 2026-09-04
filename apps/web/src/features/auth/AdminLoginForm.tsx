@@ -29,8 +29,10 @@ export function AdminLoginForm(): ReactNode {
       const { user } = await loginWithPassword(data.email, data.password);
       setUser(user);
       // No admin dashboard exists yet (a later phase) — fall back to home
-      // rather than `/admin`, which would 404. Update once it lands.
-      router.push(searchParams.get('redirect') || '/');
+      // rather than `/admin`, which would 404. Agents land on their task
+      // view, which does exist. Update the admin fallback once it lands.
+      const fallback = user.role === 'agent' ? '/agent/tasks' : '/';
+      router.push(searchParams.get('redirect') || fallback);
     } catch (error) {
       const message = applyApiErrorToForm(error, setError);
       toast.error('Could not sign in', { description: message });

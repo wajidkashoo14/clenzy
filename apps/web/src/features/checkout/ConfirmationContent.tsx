@@ -123,7 +123,7 @@ export function ConfirmationContent({ orderNumber }: { orderNumber: string }): R
 
       <div className="mt-4 flex justify-center gap-3">
         <Button asChild size="lg">
-          <Link href="/account">View my orders</Link>
+          <Link href={`/account/orders/${order.orderNumber}`}>Track my order</Link>
         </Button>
         <Button asChild size="lg" variant="secondary">
           <Link href="/">Back to home</Link>

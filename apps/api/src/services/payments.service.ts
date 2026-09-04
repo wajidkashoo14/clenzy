@@ -5,7 +5,7 @@ import type {
   RefundInput,
   RefundResult,
 } from '@clenzy/shared';
-import { Types } from 'mongoose';
+import { Types, type HydratedDocument } from 'mongoose';
 import { env } from '../config/env.js';
 import { razorpayAdapter } from '../integrations/razorpay/index.js';
 import { Order, type OrderDocument } from '../models/Order.js';
@@ -138,12 +138,51 @@ export async function retryPayment(
 }
 
 /**
- * ADMIN only — see docs/API_SPEC.md §10 and docs/PAYMENTS_AND_NOTIFICATIONS.md
- * §1.6. Always goes through the real gateway refund API; never just flips a
- * flag. Immediately reflects the gateway's synchronous response
- * (`processed` vs `pending`) — the `refund.processed`/`refund.failed`
- * webhooks then confirm or correct that state idempotently.
+ * Always goes through the real gateway refund API; never just flips a
+ * flag. Only touches the Payment doc (appends the refund record) — the
+ * order's `pricing.amountRefunded`/`paymentStatus` are the caller's
+ * responsibility to update on its own already-loaded order instance,
+ * so two callers can never race each other into overwriting one
+ * another's save with stale data. Shared by the admin refund endpoint
+ * and cancelOrder's automatic refund-on-cancel — see
+ * docs/PAYMENTS_AND_NOTIFICATIONS.md §1.6.
  */
+export async function applyRefund(
+  gatewayPaymentId: string,
+  amount: number,
+  reason: string,
+  initiatedByUserId?: string,
+): Promise<RefundResult> {
+  const refund = await razorpayAdapter.createRefund({ paymentId: gatewayPaymentId, amount });
+
+  const payment = await Payment.findOne({ gatewayPaymentId });
+  if (payment) {
+    payment.refunds.push({
+      refundId: refund.id,
+      amount,
+      reason,
+      status: refund.status,
+      initiatedBy: initiatedByUserId ? new Types.ObjectId(initiatedByUserId) : undefined,
+      at: new Date(),
+    });
+    await payment.save();
+  }
+
+  return { refundId: refund.id, amount, status: refund.status };
+}
+
+/** Applies a completed refund's amount to an already-loaded order — does not save it; the caller does. */
+export function applyRefundToOrderPricing(
+  order: HydratedDocument<OrderDocument>,
+  amount: number,
+): void {
+  const newAmountRefunded = order.pricing.amountRefunded + amount;
+  order.pricing.amountRefunded = newAmountRefunded;
+  order.paymentStatus =
+    newAmountRefunded >= order.pricing.amountPaid ? 'refunded' : 'partially_refunded';
+}
+
+/** ADMIN only — see docs/API_SPEC.md §10. Full or partial refund of a captured online payment. */
 export async function refundOrder(
   adminId: string,
   orderId: string,
@@ -156,9 +195,7 @@ export async function refundOrder(
     orderId: order._id,
     gateway: 'razorpay',
     status: 'captured',
-  }).sort({
-    createdAt: -1,
-  });
+  }).sort({ createdAt: -1 });
   if (!payment?.gatewayPaymentId) {
     throw AppError.unprocessable(
       'NOT_REFUNDABLE',
@@ -175,35 +212,17 @@ export async function refundOrder(
     );
   }
 
-  const refund = await razorpayAdapter.createRefund({
-    paymentId: payment.gatewayPaymentId,
-    amount,
-  });
+  const result = await applyRefund(payment.gatewayPaymentId, amount, input.reason, adminId);
 
-  const adminObjectId = new Types.ObjectId(adminId);
-
-  payment.refunds.push({
-    refundId: refund.id,
-    amount,
-    reason: input.reason,
-    status: refund.status,
-    initiatedBy: adminObjectId,
-    at: new Date(),
-  });
-  await payment.save();
-
-  const newAmountRefunded = order.pricing.amountRefunded + amount;
-  order.pricing.amountRefunded = newAmountRefunded;
-  order.paymentStatus =
-    newAmountRefunded >= order.pricing.amountPaid ? 'refunded' : 'partially_refunded';
+  applyRefundToOrderPricing(order, amount);
   order.statusHistory.push({
     status: order.status,
-    changedBy: adminObjectId,
+    changedBy: new Types.ObjectId(adminId),
     changedByRole: 'admin',
     note: `Refund initiated: ₹${(amount / 100).toFixed(0)} — ${input.reason}`,
     at: new Date(),
   });
   await order.save();
 
-  return { refundId: refund.id, amount, status: refund.status };
+  return result;
 }

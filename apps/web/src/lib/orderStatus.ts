@@ -1,4 +1,5 @@
 import type { OrderStatus, PaymentStatus } from '@clenzy/shared';
+import { ORDER_STATUS_LABELS } from '@clenzy/shared';
 import {
   CheckCircle2,
   Clock,
@@ -19,25 +20,37 @@ interface StatusMeta {
   icon: LucideIcon;
 }
 
-/** See docs/DESIGN_SYSTEM.md §2 "Order-status colors" and docs/PAYMENTS_AND_NOTIFICATIONS.md §2. */
-export const ORDER_STATUS_META: Record<OrderStatus, StatusMeta> = {
-  PENDING_PAYMENT: { label: 'Payment pending', color: 'warning', icon: Clock },
-  PLACED: { label: 'Placed', color: 'secondary', icon: Package },
-  CONFIRMED: { label: 'Confirmed', color: 'secondary', icon: Package },
-  PICKUP_SCHEDULED: { label: 'Pickup scheduled', color: 'secondary', icon: Package },
-  PICKED_UP: { label: 'Picked up', color: 'secondary', icon: Package },
-  PROCESSING: { label: 'Processing', color: 'accent', icon: Sparkles },
-  QUALITY_CHECK: { label: 'Quality check', color: 'accent', icon: Sparkles },
-  READY: { label: 'Ready', color: 'primary', icon: Truck },
-  OUT_FOR_DELIVERY: { label: 'Out for delivery', color: 'primary', icon: Truck },
-  DELIVERED: { label: 'Delivered', color: 'success', icon: CheckCircle2 },
-  COMPLETED: { label: 'Completed', color: 'success', icon: CheckCircle2 },
-  CANCELLED: { label: 'Cancelled', color: 'error', icon: XCircle },
-  PICKUP_FAILED: { label: 'Pickup failed', color: 'error', icon: XCircle },
-  DELIVERY_FAILED: { label: 'Delivery failed', color: 'error', icon: XCircle },
-  REFUND_PENDING: { label: 'Refund pending', color: 'neutral', icon: RotateCcw },
-  REFUNDED: { label: 'Refunded', color: 'neutral', icon: RotateCcw },
+const ORDER_STATUS_VISUALS: Record<OrderStatus, { color: StatusColor; icon: LucideIcon }> = {
+  PENDING_PAYMENT: { color: 'warning', icon: Clock },
+  PLACED: { color: 'secondary', icon: Package },
+  CONFIRMED: { color: 'secondary', icon: Package },
+  PICKUP_SCHEDULED: { color: 'secondary', icon: Package },
+  PICKED_UP: { color: 'secondary', icon: Package },
+  PROCESSING: { color: 'accent', icon: Sparkles },
+  QUALITY_CHECK: { color: 'accent', icon: Sparkles },
+  READY: { color: 'primary', icon: Truck },
+  OUT_FOR_DELIVERY: { color: 'primary', icon: Truck },
+  DELIVERED: { color: 'success', icon: CheckCircle2 },
+  COMPLETED: { color: 'success', icon: CheckCircle2 },
+  CANCELLED: { color: 'error', icon: XCircle },
+  PICKUP_FAILED: { color: 'error', icon: XCircle },
+  DELIVERY_FAILED: { color: 'error', icon: XCircle },
+  REFUND_PENDING: { color: 'neutral', icon: RotateCcw },
+  REFUNDED: { color: 'neutral', icon: RotateCcw },
 };
+
+/**
+ * See docs/DESIGN_SYSTEM.md §2 "Order-status colors" and
+ * docs/PAYMENTS_AND_NOTIFICATIONS.md §2. Labels come from
+ * `@clenzy/shared`'s `ORDER_STATUS_LABELS` — the API's order-tracking
+ * endpoint uses the exact same strings for `statusLabel`.
+ */
+export const ORDER_STATUS_META: Record<OrderStatus, StatusMeta> = Object.fromEntries(
+  Object.entries(ORDER_STATUS_VISUALS).map(([status, visuals]) => [
+    status,
+    { label: ORDER_STATUS_LABELS[status as OrderStatus], ...visuals },
+  ]),
+) as Record<OrderStatus, StatusMeta>;
 
 export const PAYMENT_STATUS_META: Record<PaymentStatus, StatusMeta> = {
   pending: { label: 'Payment pending', color: 'warning', icon: Clock },

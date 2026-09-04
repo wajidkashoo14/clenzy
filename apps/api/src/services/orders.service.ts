@@ -1,5 +1,13 @@
-import type { OrderPayload, PlaceOrderInput, PlaceOrderResult } from '@clenzy/shared';
-import mongoose, { isValidObjectId } from 'mongoose';
+import type {
+  OrderPayload,
+  OrderStatus,
+  OrderTrackResult,
+  PlaceOrderInput,
+  PlaceOrderResult,
+  RescheduleOrderInput,
+} from '@clenzy/shared';
+import { ORDER_STATUS_LABELS } from '@clenzy/shared';
+import mongoose, { isValidObjectId, Types } from 'mongoose';
 import { COD_MAX_ORDER_VALUE_PAISE, PRICING_DEFAULTS } from '../config/pricing.js';
 import { Address } from '../models/Address.js';
 import { Coupon } from '../models/Coupon.js';
@@ -11,12 +19,21 @@ import { ServiceCategory } from '../models/ServiceCategory.js';
 import { ServiceItem } from '../models/ServiceItem.js';
 import { SlotCapacity } from '../models/SlotCapacity.js';
 import { SlotTemplate } from '../models/SlotTemplate.js';
+import { User } from '../models/User.js';
 import { resolveTieredPrice } from './cart.service.js';
 import { isSlotCutoffPassed } from './slots.service.js';
 import { validateCouponCore } from './coupons.service.js';
-import { createGatewayOrderForOrder } from './payments.service.js';
+import {
+  applyRefund,
+  applyRefundToOrderPricing,
+  createGatewayOrderForOrder,
+} from './payments.service.js';
+import { changeStatus } from './orderStatus.service.js';
 import { AppError } from '../utils/AppError.js';
 import { addDaysToDateString, dayOfWeekOfDateString, nowInKolkata } from '../utils/timezone.js';
+
+const RECLEAN_WINDOW_HOURS = 72; // Confirmed: docs/PROJECT_REQUIREMENTS.md §7.
+const MAX_RESCHEDULES = 2; // Confirmed: docs/DATABASE.md "rescheduleCount — Cap at 2".
 
 type PaymentLean = PaymentDocument & { _id: unknown };
 
@@ -52,17 +69,37 @@ function toOrderPayload(order: OrderLean): OrderPayload {
       date: order.pickupSlot.date,
       window: order.pickupSlot.window,
       label: order.pickupSlot.label,
+      areaId: String(order.pickupSlot.areaId),
     },
     deliverySlot: {
       date: order.deliverySlot.date,
       window: order.deliverySlot.window,
       label: order.deliverySlot.label,
+      areaId: String(order.deliverySlot.areaId),
     },
     isExpress: order.isExpress,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
     couponCode: order.couponCode,
     customerNote: order.customerNote,
+    rescheduleCount: order.rescheduleCount,
+    failedPickupAttempts: order.failedPickupAttempts,
+    failedDeliveryAttempts: order.failedDeliveryAttempts,
+    cancellation: order.cancellation && {
+      reason: order.cancellation.reason,
+      cancelledByRole: order.cancellation.cancelledByRole,
+      at: order.cancellation.at.toISOString(),
+      refundEligible: order.cancellation.refundEligible,
+    },
+    priceRevision: order.priceRevision && {
+      originalTotal: order.priceRevision.originalTotal,
+      revisedTotal: order.priceRevision.revisedTotal,
+      reason: order.priceRevision.reason,
+      requiresApproval: order.priceRevision.requiresApproval,
+      approvedAt: order.priceRevision.approvedAt?.toISOString(),
+    },
+    deliveredAt: order.deliveredAt?.toISOString(),
+    completedAt: order.completedAt?.toISOString(),
     createdAt: order.createdAt.toISOString(),
   };
 }
@@ -88,7 +125,7 @@ async function nextOrderNumber(session: mongoose.ClientSession): Promise<string>
  * just-created doc — see docs/DEVELOPMENT_PLAN.md Phase 7's
  * 20-concurrent-orders capacity test.
  */
-async function reserveSlot(
+export async function reserveSlot(
   type: 'pickup' | 'delivery',
   date: string,
   window: string,
@@ -496,4 +533,412 @@ export async function getOrder(userId: string, orderNumber: string): Promise<Ord
   const order = await Order.findOne({ orderNumber, userId }).lean();
   if (!order) throw AppError.notFound('Order not found.');
   return toOrderPayload(order);
+}
+
+/** See docs/API_SPEC.md §7 — POST /orders/:orderNumber/cancel. */
+const CUSTOMER_CANCELLABLE_STATUSES: OrderStatus[] = [
+  'PENDING_PAYMENT',
+  'PLACED',
+  'CONFIRMED',
+  'PICKUP_SCHEDULED',
+];
+
+export async function cancelOrder(
+  userId: string,
+  orderNumber: string,
+  reason: string,
+): Promise<OrderPayload> {
+  const session = await mongoose.startSession();
+  let cancelledOrder: OrderLean | undefined;
+  let refundTarget: { gatewayPaymentId: string; amount: number } | undefined;
+
+  try {
+    await session.withTransaction(async () => {
+      const order = await Order.findOne({ orderNumber, userId }).session(session);
+      if (!order) throw AppError.notFound('Order not found.');
+      if (!CUSTOMER_CANCELLABLE_STATUSES.includes(order.status)) {
+        throw AppError.unprocessable(
+          'CANCELLATION_NOT_ALLOWED',
+          'This order can no longer be cancelled online — please contact support.',
+        );
+      }
+
+      await releaseSlot(
+        'pickup',
+        order.pickupSlot.date,
+        order.pickupSlot.window,
+        String(order.pickupSlot.areaId),
+        session,
+      );
+      await releaseSlot(
+        'delivery',
+        order.deliverySlot.date,
+        order.deliverySlot.window,
+        String(order.deliverySlot.areaId),
+        session,
+      );
+
+      if (order.couponId) {
+        await Coupon.updateOne({ _id: order.couponId }, { $inc: { usedCount: -1 } }).session(
+          session,
+        );
+        await CouponRedemption.deleteOne({ orderId: order._id }).session(session);
+      }
+
+      // See docs/PAYMENTS_AND_NOTIFICATIONS.md §1.6: "Cancelled before pickup (prepaid) — 100%".
+      const refundEligible = order.paymentStatus === 'paid';
+      order.cancellation = {
+        reason,
+        cancelledBy: new Types.ObjectId(userId),
+        cancelledByRole: 'customer',
+        at: new Date(),
+        refundEligible,
+      };
+      await changeStatus(order, 'CANCELLED', 'customer', {
+        actorUserId: userId,
+        note: reason,
+        session,
+      });
+
+      if (refundEligible) {
+        const payment = await Payment.findOne({
+          orderId: order._id,
+          gateway: 'razorpay',
+          status: 'captured',
+        }).session(session);
+        if (payment?.gatewayPaymentId) {
+          refundTarget = {
+            gatewayPaymentId: payment.gatewayPaymentId,
+            amount: order.pricing.amountPaid,
+          };
+        }
+      }
+
+      cancelledOrder = order.toObject();
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  if (refundTarget) {
+    // Outside the transaction — a real gateway call shouldn't be inside one. See payments.service.ts.
+    await applyRefund(
+      refundTarget.gatewayPaymentId,
+      refundTarget.amount,
+      'Order cancelled by customer',
+      userId,
+    );
+    const refreshedOrder = await Order.findById(cancelledOrder!._id);
+    if (refreshedOrder) {
+      applyRefundToOrderPricing(refreshedOrder, refundTarget.amount);
+      await refreshedOrder.save();
+      cancelledOrder = refreshedOrder.toObject();
+    }
+  }
+
+  return toOrderPayload(cancelledOrder!);
+}
+
+/** See docs/API_SPEC.md §7 — POST /orders/:orderNumber/reschedule. */
+const PICKUP_RESCHEDULABLE_STATUSES: OrderStatus[] = [
+  'CONFIRMED',
+  'PICKUP_SCHEDULED',
+  'PICKUP_FAILED',
+];
+const DELIVERY_RESCHEDULABLE_STATUSES: OrderStatus[] = [
+  'READY',
+  'OUT_FOR_DELIVERY',
+  'DELIVERY_FAILED',
+];
+
+export async function rescheduleOrder(
+  userId: string,
+  orderNumber: string,
+  input: RescheduleOrderInput,
+): Promise<OrderPayload> {
+  const session = await mongoose.startSession();
+  let updatedOrder: OrderLean | undefined;
+
+  try {
+    await session.withTransaction(async () => {
+      const order = await Order.findOne({ orderNumber, userId }).session(session);
+      if (!order) throw AppError.notFound('Order not found.');
+
+      if (order.rescheduleCount >= MAX_RESCHEDULES) {
+        throw AppError.unprocessable(
+          'MAX_RESCHEDULES_REACHED',
+          `This order has already been rescheduled ${MAX_RESCHEDULES} times.`,
+        );
+      }
+
+      const allowedStatuses =
+        input.type === 'pickup' ? PICKUP_RESCHEDULABLE_STATUSES : DELIVERY_RESCHEDULABLE_STATUSES;
+      if (!allowedStatuses.includes(order.status)) {
+        throw AppError.unprocessable(
+          'RESCHEDULE_NOT_ALLOWED_IN_STATUS',
+          `This order's ${input.type} can no longer be rescheduled.`,
+        );
+      }
+
+      const currentSlot = input.type === 'pickup' ? order.pickupSlot : order.deliverySlot;
+      const areaId = String(currentSlot.areaId);
+
+      // Both calls run inside this transaction — if reserving the new slot fails,
+      // the whole transaction (including the release below) rolls back together.
+      await releaseSlot(input.type, currentSlot.date, currentSlot.window, areaId, session);
+      await reserveSlot(input.type, input.date, input.window, areaId, session);
+
+      if (input.type === 'pickup') {
+        order.pickupSlot = {
+          date: input.date,
+          window: input.window,
+          label: input.window,
+          areaId: currentSlot.areaId,
+        };
+      } else {
+        order.deliverySlot = {
+          date: input.date,
+          window: input.window,
+          label: input.window,
+          areaId: currentSlot.areaId,
+          estimated: false,
+        };
+      }
+      order.rescheduleCount += 1;
+
+      const recoveryTarget: OrderStatus | undefined =
+        order.status === 'PICKUP_FAILED'
+          ? 'PICKUP_SCHEDULED'
+          : order.status === 'DELIVERY_FAILED'
+            ? 'OUT_FOR_DELIVERY'
+            : undefined;
+
+      if (recoveryTarget) {
+        await changeStatus(order, recoveryTarget, 'customer', {
+          actorUserId: userId,
+          note: `Rescheduled ${input.type}`,
+          session,
+        });
+      } else {
+        await order.save({ session });
+      }
+
+      updatedOrder = order.toObject();
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  return toOrderPayload(updatedOrder!);
+}
+
+/** See docs/API_SPEC.md §7 — POST /orders/:orderNumber/reclean. Free — see docs/PROJECT_REQUIREMENTS.md §7's confirmed 72h window. */
+export async function requestReclean(userId: string, orderNumber: string): Promise<OrderPayload> {
+  const parent = await Order.findOne({ orderNumber, userId });
+  if (!parent) throw AppError.notFound('Order not found.');
+  if (parent.type === 'reclean') {
+    throw AppError.unprocessable(
+      'RECLEAN_NOT_ALLOWED',
+      'A re-clean order cannot itself be re-cleaned.',
+    );
+  }
+  if (parent.status !== 'DELIVERED' && parent.status !== 'COMPLETED') {
+    throw AppError.unprocessable(
+      'RECLEAN_NOT_ALLOWED',
+      'Re-clean can only be requested after delivery.',
+    );
+  }
+  if (
+    !parent.deliveredAt ||
+    Date.now() - parent.deliveredAt.getTime() > RECLEAN_WINDOW_HOURS * 60 * 60 * 1000
+  ) {
+    throw AppError.unprocessable(
+      'RECLEAN_WINDOW_EXPIRED',
+      `Re-clean requests must be made within ${RECLEAN_WINDOW_HOURS} hours of delivery.`,
+    );
+  }
+
+  const session = await mongoose.startSession();
+  let createdReclean: OrderLean | undefined;
+
+  try {
+    await session.withTransaction(async () => {
+      const today = nowInKolkata().dateString;
+      const pickupDate = addDaysToDateString(today, 1);
+      const deliveryDate = addDaysToDateString(today, 3);
+
+      await reserveSlot(
+        'pickup',
+        pickupDate,
+        parent.pickupSlot.window,
+        String(parent.pickupSlot.areaId),
+        session,
+      );
+      await reserveSlot(
+        'delivery',
+        deliveryDate,
+        parent.deliverySlot.window,
+        String(parent.deliverySlot.areaId),
+        session,
+      );
+
+      const orderNumberValue = await nextOrderNumber(session);
+      const now = new Date();
+
+      const [reclean] = await Order.create(
+        [
+          {
+            orderNumber: orderNumberValue,
+            userId,
+            type: 'reclean',
+            parentOrderId: parent._id,
+            status: 'PLACED',
+            items: parent.items,
+            pricing: {
+              itemsSubtotal: 0,
+              expressSurcharge: 0,
+              deliveryFee: 0,
+              pickupFee: 0,
+              smallOrderFee: 0,
+              discountAmount: 0,
+              taxAmount: 0,
+              walletApplied: 0,
+              grandTotal: 0,
+              amountPaid: 0,
+              amountRefunded: 0,
+            },
+            pickupAddress: parent.pickupAddress,
+            deliveryAddress: parent.deliveryAddress,
+            pickupSlot: {
+              date: pickupDate,
+              window: parent.pickupSlot.window,
+              label: parent.pickupSlot.window,
+              areaId: parent.pickupSlot.areaId,
+            },
+            deliverySlot: {
+              date: deliveryDate,
+              window: parent.deliverySlot.window,
+              label: parent.deliverySlot.window,
+              areaId: parent.deliverySlot.areaId,
+              estimated: false,
+            },
+            isExpress: false,
+            paymentMethod: 'cod',
+            paymentStatus: 'paid',
+            statusHistory: [
+              {
+                status: 'PLACED',
+                changedByRole: 'customer',
+                note: `Re-clean requested for ${parent.orderNumber}`,
+                at: now,
+              },
+            ],
+            internalNotes: [],
+            source: 'web',
+          },
+        ],
+        { session },
+      );
+      if (!reclean) throw new Error('Order.create returned no document.');
+      createdReclean = reclean.toObject();
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  return toOrderPayload(createdReclean!);
+}
+
+/** See docs/API_SPEC.md §7 — POST /orders/:orderNumber/approve-revision. */
+export async function approveRevision(userId: string, orderNumber: string): Promise<OrderPayload> {
+  const order = await Order.findOne({ orderNumber, userId });
+  if (!order) throw AppError.notFound('Order not found.');
+  if (!order.priceRevision?.requiresApproval) {
+    throw AppError.unprocessable(
+      'NO_PENDING_REVISION',
+      'There is no price revision awaiting your approval.',
+    );
+  }
+
+  order.priceRevision.requiresApproval = false;
+  order.priceRevision.approvedAt = new Date();
+  order.priceRevision.approvedBy = new Types.ObjectId(userId);
+  order.pricing.grandTotal = order.priceRevision.revisedTotal;
+  order.statusHistory.push({
+    status: order.status,
+    changedBy: new Types.ObjectId(userId),
+    changedByRole: 'customer',
+    note: 'Price revision approved',
+    at: new Date(),
+  });
+  await order.save();
+
+  return toOrderPayload(order.toObject());
+}
+
+/**
+ * See docs/API_SPEC.md §7 — GET /orders/:orderNumber/track. On the happy
+ * path, shows the full expected sequence with future steps marked
+ * incomplete; off it (cancelled, failed, refunding), shows what actually
+ * happened instead, since overlaying those onto a fixed sequence would lie.
+ */
+const HAPPY_PATH: OrderStatus[] = [
+  'PLACED',
+  'CONFIRMED',
+  'PICKUP_SCHEDULED',
+  'PICKED_UP',
+  'PROCESSING',
+  'QUALITY_CHECK',
+  'READY',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'COMPLETED',
+];
+const AGENT_VISIBLE_STATUSES: OrderStatus[] = ['PICKUP_SCHEDULED', 'OUT_FOR_DELIVERY'];
+const ENDED_STATUSES: OrderStatus[] = ['DELIVERED', 'COMPLETED', 'CANCELLED', 'REFUNDED'];
+
+export async function trackOrder(userId: string, orderNumber: string): Promise<OrderTrackResult> {
+  const order = await Order.findOne({ orderNumber, userId }).lean();
+  if (!order) throw AppError.notFound('Order not found.');
+
+  const currentIndex = HAPPY_PATH.indexOf(order.status);
+  const timeline: OrderTrackResult['timeline'] =
+    currentIndex >= 0
+      ? HAPPY_PATH.map((status, index) => {
+          const historyEntry = order.statusHistory.find((h) => h.status === status);
+          return {
+            status,
+            label: ORDER_STATUS_LABELS[status],
+            at: historyEntry?.at.toISOString(),
+            isCompleted: index <= currentIndex,
+            isCurrent: index === currentIndex,
+            note: historyEntry?.note,
+          };
+        })
+      : order.statusHistory.map((entry, index) => ({
+          status: entry.status,
+          label: ORDER_STATUS_LABELS[entry.status],
+          at: entry.at.toISOString(),
+          isCompleted: true,
+          isCurrent: index === order.statusHistory.length - 1,
+          note: entry.note,
+        }));
+
+  let agent: OrderTrackResult['agent'] = null;
+  if (AGENT_VISIBLE_STATUSES.includes(order.status)) {
+    const agentId =
+      order.status === 'PICKUP_SCHEDULED'
+        ? order.assignedPickupAgentId
+        : order.assignedDeliveryAgentId;
+    const agentUser = agentId ? await User.findById(agentId).lean() : null;
+    if (agentUser) agent = { name: agentUser.name ?? 'Your agent', phone: agentUser.phone };
+  }
+
+  return {
+    status: order.status,
+    statusLabel: ORDER_STATUS_LABELS[order.status],
+    timeline,
+    estimatedDelivery: ENDED_STATUSES.includes(order.status) ? undefined : order.deliverySlot.date,
+    agent,
+  };
 }

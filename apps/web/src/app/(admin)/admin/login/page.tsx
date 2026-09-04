@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export default function AdminLoginPage() {
   return (
     <AuthShell
-      title="Staff & admin sign-in"
+      title="Staff, admin & agent sign-in"
       subtitle="Email and password required — OTP login isn't available here."
     >
       <Suspense>

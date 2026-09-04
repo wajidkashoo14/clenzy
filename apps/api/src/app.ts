@@ -12,6 +12,7 @@ import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import { sanitizeRequest } from './middlewares/sanitize.js';
 import { addressesRouter } from './routes/addresses.route.js';
 import { adminRouter } from './routes/admin.route.js';
+import { agentRouter } from './routes/agent.route.js';
 import { areasRouter } from './routes/areas.route.js';
 import { authRouter } from './routes/auth.route.js';
 import { cartRouter } from './routes/cart.route.js';
@@ -87,6 +88,7 @@ export function createApp(): Express {
   app.use('/api/v1/orders', ordersRouter);
   app.use('/api/v1/payments', paymentsRouter);
   app.use('/api/v1/admin', adminRouter);
+  app.use('/api/v1/agent', agentRouter);
   app.use('/api/v1/dev', devRouter);
 
   app.use(notFoundHandler);

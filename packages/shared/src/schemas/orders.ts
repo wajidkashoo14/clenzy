@@ -64,6 +64,23 @@ const orderSlotSchema = z.object({
   date: z.string(),
   window: z.string(),
   label: z.string(),
+  /** The service area this slot belongs to — needed to query GET /slots when rescheduling. */
+  areaId: z.string(),
+});
+
+const cancellationSchema = z.object({
+  reason: z.string(),
+  cancelledByRole: z.enum(['customer', 'staff', 'admin', 'system']),
+  at: z.string(),
+  refundEligible: z.boolean(),
+});
+
+const priceRevisionSchema = z.object({
+  originalTotal: z.number().int(),
+  revisedTotal: z.number().int(),
+  reason: z.string(),
+  requiresApproval: z.boolean(),
+  approvedAt: z.string().optional(),
 });
 
 export const orderSchema = z.object({
@@ -80,6 +97,13 @@ export const orderSchema = z.object({
   paymentStatus: z.string(),
   couponCode: z.string().optional(),
   customerNote: z.string().optional(),
+  rescheduleCount: z.number().int(),
+  failedPickupAttempts: z.number().int(),
+  failedDeliveryAttempts: z.number().int(),
+  cancellation: cancellationSchema.optional(),
+  priceRevision: priceRevisionSchema.optional(),
+  deliveredAt: z.string().optional(),
+  completedAt: z.string().optional(),
   createdAt: z.string(),
 });
 export type OrderPayload = z.infer<typeof orderSchema>;
@@ -98,3 +122,40 @@ export const placeOrderResultSchema = z.object({
   payment: razorpayOrderInfoSchema.optional(),
 });
 export type PlaceOrderResult = z.infer<typeof placeOrderResultSchema>;
+
+/** See docs/API_SPEC.md §7 — POST /orders/:orderNumber/cancel. */
+export const cancelOrderInputSchema = z.object({
+  reason: z.string().trim().min(1, 'A cancellation reason is required').max(500),
+});
+export type CancelOrderInput = z.infer<typeof cancelOrderInputSchema>;
+
+/** See docs/API_SPEC.md §7 — POST /orders/:orderNumber/reschedule. */
+export const rescheduleOrderInputSchema = z.object({
+  type: z.enum(['pickup', 'delivery']),
+  date: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
+  window: z.string().trim().min(1),
+});
+export type RescheduleOrderInput = z.infer<typeof rescheduleOrderInputSchema>;
+
+/** See docs/API_SPEC.md §7 — GET /orders/:orderNumber/track. */
+export const orderTrackTimelineEntrySchema = z.object({
+  status: z.string(),
+  label: z.string(),
+  /** Absent for a step the order hasn't reached yet. */
+  at: z.string().optional(),
+  isCompleted: z.boolean(),
+  isCurrent: z.boolean(),
+  note: z.string().optional(),
+});
+
+export const orderTrackResultSchema = z.object({
+  status: z.string(),
+  statusLabel: z.string(),
+  timeline: z.array(orderTrackTimelineEntrySchema),
+  estimatedDelivery: z.string().optional(),
+  agent: z.object({ name: z.string(), phone: z.string() }).nullable(),
+});
+export type OrderTrackResult = z.infer<typeof orderTrackResultSchema>;

@@ -45,3 +45,17 @@ export function formatSlotWindow(window: string): string {
   if (!start || !end) return window;
   return `${to12Hour(start)} – ${to12Hour(end)}`;
 }
+
+const dateTimeFormatter = new Intl.DateTimeFormat('en-IN', {
+  day: 'numeric',
+  month: 'short',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+  timeZone: 'Asia/Kolkata',
+});
+
+/** ISO timestamp → "5 Sep, 2:34 PM". */
+export function formatDateTime(isoString: string): string {
+  return dateTimeFormatter.format(new Date(isoString));
+}

@@ -6,6 +6,7 @@ import { CouponRedemption } from '../models/CouponRedemption.js';
 import { Order } from '../models/Order.js';
 import { Payment } from '../models/Payment.js';
 import { releaseSlot } from '../services/orders.service.js';
+import { changeStatus } from '../services/orderStatus.service.js';
 
 /**
  * See docs/PAYMENTS_AND_NOTIFICATIONS.md §1.5 "User abandons checkout" — an
@@ -53,20 +54,16 @@ export async function expireAbandonedOrders(): Promise<{ expired: number }> {
           await CouponRedemption.deleteOne({ orderId: order._id }).session(session);
         }
 
-        order.status = 'CANCELLED';
         order.cancellation = {
           reason: 'payment_timeout',
           cancelledByRole: 'system',
           at: new Date(),
           refundEligible: false,
         };
-        order.statusHistory.push({
-          status: 'CANCELLED',
-          changedByRole: 'system',
+        await changeStatus(order, 'CANCELLED', 'system', {
           note: `Abandoned checkout — expired after ${PAYMENT_TIMING.abandonedOrderExpiryMinutes} minutes`,
-          at: new Date(),
+          session,
         });
-        await order.save({ session });
 
         await Payment.updateMany(
           { orderId: order._id, status: 'created' },

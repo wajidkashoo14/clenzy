@@ -19,3 +19,8 @@ ordersRouter.use(requireAuth);
 ordersRouter.post('/', placeOrderLimiter, ordersController.place);
 ordersRouter.get('/', ordersController.list);
 ordersRouter.get('/:orderNumber', ordersController.get);
+ordersRouter.get('/:orderNumber/track', ordersController.track);
+ordersRouter.post('/:orderNumber/cancel', ordersController.cancel);
+ordersRouter.post('/:orderNumber/reschedule', ordersController.reschedule);
+ordersRouter.post('/:orderNumber/reclean', ordersController.reclean);
+ordersRouter.post('/:orderNumber/approve-revision', ordersController.approveRevision);

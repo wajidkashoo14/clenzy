@@ -89,6 +89,14 @@ export interface OrderDocument {
     at: Date;
     refundEligible: boolean;
   };
+  priceRevision?: {
+    originalTotal: number;
+    revisedTotal: number;
+    reason: string;
+    requiresApproval: boolean;
+    approvedAt?: Date;
+    approvedBy?: Types.ObjectId;
+  };
   rescheduleCount: number;
   failedPickupAttempts: number;
   failedDeliveryAttempts: number;
@@ -197,6 +205,14 @@ const orderSchema = new Schema<OrderDocument>(
       cancelledByRole: { type: String, enum: ['customer', 'staff', 'admin', 'system'] },
       at: { type: Date },
       refundEligible: { type: Boolean },
+    },
+    priceRevision: {
+      originalTotal: { type: Number },
+      revisedTotal: { type: Number },
+      reason: { type: String },
+      requiresApproval: { type: Boolean },
+      approvedAt: { type: Date },
+      approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     },
     rescheduleCount: { type: Number, default: 0 },
     failedPickupAttempts: { type: Number, default: 0 },
