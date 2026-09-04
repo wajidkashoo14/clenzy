@@ -7,6 +7,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/cn';
 import { transitions } from '@/lib/motion';
 import type { NavGroup, NavLink } from './MobileNav';
@@ -53,6 +54,7 @@ export function Header({
   const [isSolid, setIsSolid] = useState(!transparentAtTop);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { scrollY } = useScroll();
+  const user = useAuthStore((state) => state.user);
 
   useMotionValueEvent(scrollY, 'change', (y) => {
     if (transparentAtTop) setIsSolid(y > SOLIDIFY_THRESHOLD_PX);
@@ -139,9 +141,9 @@ export function Header({
             </Link>
 
             <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <Link href={accountHref}>
+              <Link href={user ? accountHref : '/login'}>
                 <User className="size-4" aria-hidden="true" />
-                Account
+                {user ? (user.name ?? 'Account') : 'Account'}
               </Link>
             </Button>
 

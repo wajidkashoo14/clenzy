@@ -20,6 +20,14 @@ const envSchema = z.object({
     .min(1, 'CORS_ORIGINS is required, e.g. "http://localhost:3000".')
     .transform((value) => value.split(',').map((origin) => origin.trim())),
   COOKIE_DOMAIN: z.string().default('localhost'),
+  JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters.'),
+  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters.'),
+  // Optional — see apps/api/src/integrations/msg91/index.ts. Unset means the
+  // console-logging fake adapter is used (no DLT registration yet; see
+  // docs/DEVELOPMENT_PLAN.md Phase 4).
+  MSG91_AUTH_KEY: z.string().optional(),
+  MSG91_SENDER_ID: z.string().optional(),
+  MSG91_OTP_TEMPLATE_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

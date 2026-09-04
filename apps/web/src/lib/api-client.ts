@@ -29,7 +29,7 @@ interface ErrorEnvelope {
   error: { code: string; message: string; details?: ApiErrorDetail[] };
 }
 
-async function toApiError(response: Response, fallbackMessage: string): Promise<ApiError> {
+export async function toApiError(response: Response, fallbackMessage: string): Promise<ApiError> {
   try {
     const body = (await response.json()) as ErrorEnvelope;
     if (body.error) {

@@ -8,6 +8,7 @@ import { Toaster } from '@/components/ui/Toast';
 import { TooltipProvider } from '@/components/ui/Tooltip';
 import { brand } from '@/content/brand';
 import { SERVICE_CATEGORIES } from '@/content/services';
+import { AuthSessionInit } from '@/features/auth/AuthSessionInit';
 
 const NAV_ITEMS = [
   { label: 'Services', menuContent: <ServicesMegaMenu /> },
@@ -107,6 +108,7 @@ const BOTTOM_BAR_ITEMS = [
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
+      <AuthSessionInit />
       <Toaster />
 
       <MarketingChrome
