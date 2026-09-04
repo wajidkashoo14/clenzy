@@ -5,20 +5,23 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
 import { Container } from '@/components/layout/Container';
 import { brand } from '@/content/brand';
-import { getServiceCategoryBySlug, SERVICE_CATEGORIES } from '@/content/services';
+import { getCategories, getCategoryBySlug } from '@/lib/catalog-api';
+import { formatRupees } from '@/lib/format';
+import { renderIcon } from '@/lib/icons';
 import { breadcrumbJsonLd, buildMetadata, JsonLd, serviceJsonLd } from '@/lib/seo';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export function generateStaticParams() {
-  return SERVICE_CATEGORIES.map((category) => ({ slug: category.slug }));
+export async function generateStaticParams() {
+  const categories = await getCategories();
+  return categories.map((category) => ({ slug: category.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const category = getServiceCategoryBySlug(slug);
+  const category = await getCategoryBySlug(slug);
   if (!category) return {};
 
   return buildMetadata({
@@ -30,10 +33,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ServiceDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const category = getServiceCategoryBySlug(slug);
+  const category = await getCategoryBySlug(slug);
   if (!category) notFound();
 
-  const Icon = category.icon;
+  const items = category.items ?? [];
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
     { label: 'Services', href: '/services' },
@@ -48,10 +51,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
           name: category.name,
           description: category.description,
           path: `/services/${category.slug}`,
-          offers: category.items.map((item) => ({
-            name: item.name,
-            priceRupees: item.priceRupees,
-          })),
+          offers: items.map((item) => ({ name: item.name, priceRupees: item.price / 100 })),
         })}
       />
 
@@ -60,7 +60,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
 
         <div className="mt-4 flex items-start gap-4">
           <span className="bg-primary-soft text-primary flex size-14 shrink-0 items-center justify-center rounded-xl">
-            <Icon className="size-6" aria-hidden="true" />
+            {renderIcon(category.icon, 'size-6')}
           </span>
           <div>
             <h1 className="font-heading text-text text-3xl font-semibold sm:text-4xl">
@@ -90,7 +90,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
               </tr>
             </thead>
             <tbody>
-              {category.items.map((item, i) => (
+              {items.map((item, i) => (
                 <tr key={item.slug} className={i % 2 === 1 ? 'bg-surface-alt' : 'bg-surface'}>
                   <td className="text-text px-4 py-3">
                     {item.name}
@@ -99,7 +99,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
                     )}
                   </td>
                   <td className="text-text px-4 py-3 text-right font-medium tabular-nums">
-                    ₹{item.priceRupees}
+                    {formatRupees(item.price)}
                     <span className="text-text-muted ml-1">/ {item.unit}</span>
                   </td>
                 </tr>

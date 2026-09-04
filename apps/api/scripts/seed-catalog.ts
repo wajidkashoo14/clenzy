@@ -1,17 +1,22 @@
-import type { LucideIcon } from 'lucide-react';
-import { Footprints, Home, Layers, Shirt, ShirtIcon, Sofa, Sparkles, Wind } from 'lucide-react';
-
 /**
- * PLACEHOLDER catalog data — prices are illustrative only, not real Clenzy
- * pricing (docs/PROJECT_REQUIREMENTS.md §7). As of Phase 5, pages that show
- * a PRICE (`/services`, `/services/[slug]`, `/pricing`, the homepage
- * services grid) fetch live data from the API instead (see
- * lib/catalog-api.ts) — this array's `items`/prices are no longer read
- * anywhere. It's kept only for `name`/`slug` — nav links, the sitemap, and
- * form dropdowns that don't display a price. The same data is seeded into
- * MongoDB by apps/api/scripts/seed-catalog.ts.
+ * Seeds serviceCategories/serviceItems/serviceAreas with the same
+ * illustrative catalog data that shipped as static placeholder content in
+ * Phase 3 (apps/web/src/content/services.ts, locations.ts) — see
+ * docs/DEVELOPMENT_PLAN.md Phase 5 ("seed script with the real price list
+ * from Phase 0"). No real price list exists yet (docs/PROJECT_REQUIREMENTS.md
+ * §7 — the business owner hasn't supplied one), so this migrates the exact
+ * same clearly-illustrative numbers into the database rather than inventing
+ * new ones. Idempotent: safe to re-run, replaces existing catalog documents.
+ *
+ * Usage: npm run seed:catalog --workspace=apps/api
  */
-export interface ServiceItem {
+import { connectDatabase, disconnectDatabase } from '../src/config/db.js';
+import { logger } from '../src/config/logger.js';
+import { ServiceArea } from '../src/models/ServiceArea.js';
+import { ServiceCategory } from '../src/models/ServiceCategory.js';
+import { ServiceItem } from '../src/models/ServiceItem.js';
+
+interface SeedItem {
   name: string;
   slug: string;
   unit: 'piece' | 'pair' | 'sqft' | 'set';
@@ -19,22 +24,22 @@ export interface ServiceItem {
   careNote?: string;
 }
 
-export interface ServiceCategory {
+interface SeedCategory {
   name: string;
   slug: string;
-  icon: LucideIcon;
+  icon: string;
   shortDescription: string;
   description: string;
   turnaroundHours: number;
   expressAvailable: boolean;
-  items: ServiceItem[];
+  items: SeedItem[];
 }
 
-export const SERVICE_CATEGORIES: ServiceCategory[] = [
+const CATEGORIES: SeedCategory[] = [
   {
     name: 'Laundry',
     slug: 'laundry',
-    icon: Shirt,
+    icon: 'Shirt',
     shortDescription: 'Everyday wash & fold for your daily wear.',
     description:
       'Machine-washed, carefully sorted by colour and fabric, folded and packed — ready to put away, not just clean.',
@@ -54,7 +59,7 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
   {
     name: 'Wash & Iron',
     slug: 'wash-and-iron',
-    icon: ShirtIcon,
+    icon: 'ShirtIcon',
     shortDescription: 'Washed and pressed, crease-free and ready to wear.',
     description: 'Everything from our Laundry line, finished with a professional steam press.',
     turnaroundHours: 48,
@@ -69,7 +74,7 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
   {
     name: 'Dry Cleaning',
     slug: 'dry-cleaning',
-    icon: Sparkles,
+    icon: 'Sparkles',
     shortDescription: 'Gentle solvent cleaning for delicate and structured garments.',
     description:
       'Suits, sarees, sherwanis, and winter wear that need more care than a regular wash — cleaned and pressed by hand.',
@@ -95,7 +100,7 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
   {
     name: 'Specialty Care',
     slug: 'specialty-care',
-    icon: Wind,
+    icon: 'Wind',
     shortDescription: 'Pashmina, shawls, and heirloom woollens — handled with extra care.',
     description:
       'Fine woollens need gentler chemistry and hand-finishing. This line is for the pieces you’d never trust to a regular wash.',
@@ -115,7 +120,7 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
   {
     name: 'Shoe & Bag Cleaning',
     slug: 'shoe-bag-cleaning',
-    icon: Footprints,
+    icon: 'Footprints',
     shortDescription: 'Deep cleaning for footwear and bags, without damaging materials.',
     description: 'Sneakers, leather shoes, and bags cleaned and conditioned by hand.',
     turnaroundHours: 72,
@@ -129,7 +134,7 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
   {
     name: 'Carpet & Rug Cleaning',
     slug: 'carpet-cleaning',
-    icon: Layers,
+    icon: 'Layers',
     shortDescription: 'Deep cleaning for carpets, namdas, and hand-knotted rugs.',
     description:
       'Pickup, deep clean, and return for carpets too large to wash at home — priced by area.',
@@ -148,7 +153,7 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
   {
     name: 'Sofa & Curtain Cleaning',
     slug: 'sofa-curtain-cleaning',
-    icon: Sofa,
+    icon: 'Sofa',
     shortDescription: 'In-place upholstery cleaning and pickup service for curtains.',
     description: 'Sofas cleaned at your home; curtains picked up, cleaned, and rehung.',
     turnaroundHours: 96,
@@ -163,7 +168,7 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
   {
     name: 'Home Essentials',
     slug: 'home-essentials',
-    icon: Home,
+    icon: 'Home',
     shortDescription: 'Quilts, blankets, and other bulky home textiles.',
     description:
       'The bulky items that don’t fit in a home washing machine, cleaned properly and returned fresh.',
@@ -175,3 +180,82 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
     ],
   },
 ];
+
+const AREAS: { name: string; slug: string; pincode: string; expressAvailable: boolean }[] = [
+  { name: 'Rajbagh', slug: 'rajbagh', pincode: '190008', expressAvailable: true },
+  { name: 'Lal Chowk', slug: 'lal-chowk', pincode: '190001', expressAvailable: true },
+  { name: 'Hyderpora', slug: 'hyderpora', pincode: '190014', expressAvailable: false },
+  { name: 'Nishat', slug: 'nishat', pincode: '190006', expressAvailable: false },
+  { name: 'Dalgate', slug: 'dalgate', pincode: '190001', expressAvailable: true },
+];
+
+async function seed(): Promise<void> {
+  await connectDatabase();
+
+  await ServiceItem.deleteMany({});
+  await ServiceCategory.deleteMany({});
+  await ServiceArea.deleteMany({});
+
+  for (const [categoryIndex, category] of CATEGORIES.entries()) {
+    const doc = await ServiceCategory.create({
+      name: category.name,
+      slug: category.slug,
+      description: category.description,
+      shortDescription: category.shortDescription,
+      icon: category.icon,
+      turnaroundHours: category.turnaroundHours,
+      expressAvailable: category.expressAvailable,
+      sortOrder: categoryIndex,
+      isActive: true,
+    });
+
+    await ServiceItem.insertMany(
+      category.items.map((item, itemIndex) => ({
+        categoryId: doc._id,
+        name: item.name,
+        slug: item.slug,
+        unit: item.unit,
+        price: item.priceRupees * 100,
+        careNote: item.careNote,
+        taxRatePercent: 0,
+        minQuantity: 1,
+        maxQuantity: 99,
+        sortOrder: itemIndex,
+        isActive: true,
+        isPopular: false,
+        availableInAreas: [],
+      })),
+    );
+
+    logger.info(`Seeded "${category.name}" — ${category.items.length} items`);
+  }
+
+  await ServiceArea.insertMany(
+    AREAS.map((area) => ({
+      city: 'Srinagar',
+      state: 'Jammu and Kashmir',
+      area: area.name,
+      slug: area.slug,
+      pincodes: [area.pincode],
+      pickupAvailable: true,
+      deliveryAvailable: true,
+      expressAvailable: area.expressAvailable,
+      deliveryFee: 0,
+      serviceableCategories: [],
+      isActive: true,
+    })),
+  );
+  logger.info(`Seeded ${AREAS.length} service areas`);
+
+  await disconnectDatabase();
+}
+
+seed()
+  .then(() => {
+    logger.info('Catalog seed complete');
+    process.exit(0);
+  })
+  .catch((error: unknown) => {
+    logger.error({ err: error }, 'Catalog seed failed');
+    process.exit(1);
+  });

@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Container } from '@/components/layout/Container';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { PriceListSearch } from '@/components/marketing/PriceListSearch';
 import { brand } from '@/content/brand';
-import { SERVICE_CATEGORIES } from '@/content/services';
+import { getPricingGroups } from '@/lib/catalog-api';
 import { breadcrumbJsonLd, buildMetadata, JsonLd } from '@/lib/seo';
 
 export const metadata: Metadata = buildMetadata({
@@ -13,8 +13,9 @@ export const metadata: Metadata = buildMetadata({
   path: '/pricing',
 });
 
-export default function PricingPage() {
+export default async function PricingPage() {
   const breadcrumbItems = [{ label: 'Home', href: '/' }, { label: 'Pricing' }];
+  const groups = await getPricingGroups();
 
   return (
     <>
@@ -30,40 +31,7 @@ export default function PricingPage() {
           </p>
         </div>
 
-        <Tabs defaultValue={SERVICE_CATEGORIES[0]?.slug} className="mt-8">
-          <TabsList className="flex-wrap">
-            {SERVICE_CATEGORIES.map((category) => (
-              <TabsTrigger key={category.slug} value={category.slug}>
-                {category.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {SERVICE_CATEGORIES.map((category) => (
-            <TabsContent key={category.slug} value={category.slug}>
-              <div className="border-border overflow-hidden rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead className="bg-surface-alt">
-                    <tr>
-                      <th className="text-text px-4 py-3 text-left font-semibold">Item</th>
-                      <th className="text-text px-4 py-3 text-right font-semibold">Price</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {category.items.map((item, i) => (
-                      <tr key={item.slug} className={i % 2 === 1 ? 'bg-surface-alt' : 'bg-surface'}>
-                        <td className="text-text px-4 py-3">{item.name}</td>
-                        <td className="text-text px-4 py-3 text-right font-medium tabular-nums">
-                          ₹{item.priceRupees} <span className="text-text-muted">/ {item.unit}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
-          ))}
-        </Tabs>
+        <PriceListSearch groups={groups} />
       </Container>
     </>
   );

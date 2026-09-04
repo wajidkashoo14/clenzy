@@ -1,12 +1,13 @@
 'use client';
 
+import type { PincodeCheckResult } from '@clenzy/shared';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { PincodeInput, type PincodeCheckStatus } from '@/components/ui/PincodeInput';
-import { checkPincodeServiceable } from '@/content/locations';
+import { apiGet } from '@/lib/api-client';
 import { transitions } from '@/lib/motion';
 
 /**
@@ -20,17 +21,19 @@ export function Hero(): ReactNode {
   const [status, setStatus] = useState<PincodeCheckStatus>('idle');
   const [matchedAreaName, setMatchedAreaName] = useState<string | null>(null);
 
-  function handleCheck(value: string): void {
+  async function handleCheck(value: string): Promise<void> {
     setStatus('loading');
-    setTimeout(() => {
-      const area = checkPincodeServiceable(value);
-      if (area) {
-        setMatchedAreaName(area.name);
+    try {
+      const result = await apiGet<PincodeCheckResult>(`/api/v1/areas/check?pincode=${value}`);
+      if (result.serviceable) {
+        setMatchedAreaName(result.area.area);
         setStatus('success');
       } else {
         setStatus('error');
       }
-    }, 500);
+    } catch {
+      setStatus('error');
+    }
   }
 
   return (

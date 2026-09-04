@@ -41,6 +41,11 @@ export async function toApiError(response: Response, fallbackMessage: string): P
   return new ApiError(response.status, 'UNKNOWN_ERROR', fallbackMessage);
 }
 
+interface SuccessEnvelope<T> {
+  success: true;
+  data: T;
+}
+
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -52,7 +57,8 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
     throw await toApiError(response, `GET ${path} failed with ${response.status}`);
   }
 
-  return (await response.json()) as T;
+  const body = (await response.json()) as SuccessEnvelope<T>;
+  return body.data;
 }
 
 export async function apiPost<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
@@ -68,5 +74,6 @@ export async function apiPost<T>(path: string, body: unknown, init?: RequestInit
     throw await toApiError(response, `POST ${path} failed with ${response.status}`);
   }
 
-  return (await response.json()) as T;
+  const responseBody = (await response.json()) as SuccessEnvelope<T>;
+  return responseBody.data;
 }

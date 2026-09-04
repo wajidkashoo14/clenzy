@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
-import { Breadcrumb } from '@/components/ui/Breadcrumb';
-import { Container } from '@/components/layout/Container';
-import { getStartingPrice, SERVICE_CATEGORIES } from '@/content/services';
-import { brand } from '@/content/brand';
-import { breadcrumbJsonLd, buildMetadata, JsonLd } from '@/lib/seo';
 import Link from 'next/link';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Card } from '@/components/ui/Card';
+import { Container } from '@/components/layout/Container';
+import { brand } from '@/content/brand';
+import { getCategories } from '@/lib/catalog-api';
+import { formatRupees } from '@/lib/format';
+import { renderIcon } from '@/lib/icons';
+import { breadcrumbJsonLd, buildMetadata, JsonLd } from '@/lib/seo';
 
 export const metadata: Metadata = buildMetadata({
   title: `All Services | ${brand.name}`,
@@ -14,8 +16,9 @@ export const metadata: Metadata = buildMetadata({
   path: '/services',
 });
 
-export default function ServicesIndexPage() {
+export default async function ServicesIndexPage() {
   const breadcrumbItems = [{ label: 'Home', href: '/' }, { label: 'Services' }];
+  const categories = await getCategories();
 
   return (
     <>
@@ -34,28 +37,26 @@ export default function ServicesIndexPage() {
         </div>
 
         <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SERVICE_CATEGORIES.map((category) => {
-            const Icon = category.icon;
-            return (
-              <Link key={category.slug} href={`/services/${category.slug}`} className="group block">
-                <Card interactive padding="lg" className="h-full">
-                  <span className="bg-primary-soft text-primary flex size-11 items-center justify-center rounded-lg">
-                    <Icon className="size-5" aria-hidden="true" />
+          {categories.map((category) => (
+            <Link key={category.slug} href={`/services/${category.slug}`} className="group block">
+              <Card interactive padding="lg" className="h-full">
+                <span className="bg-primary-soft text-primary flex size-11 items-center justify-center rounded-lg">
+                  {renderIcon(category.icon, 'size-5')}
+                </span>
+                <h2 className="text-text mt-4 text-base font-semibold">{category.name}</h2>
+                <p className="text-text-muted mt-1.5 text-sm">{category.description}</p>
+                <p className="text-text-muted mt-3 flex items-center justify-between text-sm">
+                  <span>
+                    {category.itemCount} items · {category.turnaroundHours}h turnaround
                   </span>
-                  <h2 className="text-text mt-4 text-base font-semibold">{category.name}</h2>
-                  <p className="text-text-muted mt-1.5 text-sm">{category.description}</p>
-                  <p className="text-text-muted mt-3 flex items-center justify-between text-sm">
-                    <span>
-                      {category.items.length} items · {category.turnaroundHours}h turnaround
-                    </span>
-                    <span className="text-primary font-medium">
-                      From ₹{getStartingPrice(category)}
-                    </span>
-                  </p>
-                </Card>
-              </Link>
-            );
-          })}
+                  <span className="text-primary font-medium">
+                    From{' '}
+                    {category.startingPrice !== undefined && formatRupees(category.startingPrice)}
+                  </span>
+                </p>
+              </Card>
+            </Link>
+          ))}
         </div>
       </Container>
     </>
