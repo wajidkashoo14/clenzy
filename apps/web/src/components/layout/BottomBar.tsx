@@ -30,7 +30,7 @@ export function BottomBar({ items, hidden = false }: BottomBarProps): ReactNode 
   const pathname = usePathname();
   const keyboardOpen = useIsKeyboardOpen();
 
-  if (hidden || keyboardOpen) return null;
+  if (hidden || keyboardOpen || pathname.startsWith('/checkout')) return null;
 
   return (
     <nav

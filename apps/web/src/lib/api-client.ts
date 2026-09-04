@@ -18,6 +18,8 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly details?: ApiErrorDetail[],
+    /** Extra machine-readable fields beyond code/message/details — e.g. `nearestServiceableAreas`, a `DUPLICATE_REQUEST` replay's `order`. */
+    readonly extra?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -26,14 +28,15 @@ export class ApiError extends Error {
 
 interface ErrorEnvelope {
   success: false;
-  error: { code: string; message: string; details?: ApiErrorDetail[] };
+  error: { code: string; message: string; details?: ApiErrorDetail[]; [key: string]: unknown };
 }
 
 export async function toApiError(response: Response, fallbackMessage: string): Promise<ApiError> {
   try {
     const body = (await response.json()) as ErrorEnvelope;
     if (body.error) {
-      return new ApiError(response.status, body.error.code, body.error.message, body.error.details);
+      const { code, message, details, ...extra } = body.error;
+      return new ApiError(response.status, code, message, details, extra);
     }
   } catch {
     // Response body wasn't the expected JSON error envelope — fall through.
@@ -61,19 +64,36 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   return body.data;
 }
 
-export async function apiPost<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
+async function apiWithBody<T>(
+  method: 'POST' | 'PATCH' | 'DELETE',
+  path: string,
+  body: unknown,
+  init?: RequestInit,
+): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
-    method: 'POST',
+    method,
     credentials: 'include',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...init?.headers },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
-    throw await toApiError(response, `POST ${path} failed with ${response.status}`);
+    throw await toApiError(response, `${method} ${path} failed with ${response.status}`);
   }
 
   const responseBody = (await response.json()) as SuccessEnvelope<T>;
   return responseBody.data;
+}
+
+export function apiPost<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
+  return apiWithBody('POST', path, body, init);
+}
+
+export function apiPatch<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
+  return apiWithBody('PATCH', path, body, init);
+}
+
+export function apiDelete<T>(path: string, init?: RequestInit): Promise<T> {
+  return apiWithBody('DELETE', path, undefined, init);
 }

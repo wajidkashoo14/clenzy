@@ -128,17 +128,13 @@ export function CartPageContent(): ReactNode {
                   </p>
                 )}
 
-                <p className="text-text-muted mt-4 text-[13px]">
-                  Online checkout is launching soon. For now, book a pickup and we&rsquo;ll confirm
-                  your order directly.
-                </p>
                 {estimate.meetsMinimumOrder ? (
-                  <Button asChild size="lg" className="mt-2 w-full">
-                    <Link href="/book">Book a pickup</Link>
+                  <Button asChild size="lg" className="mt-4 w-full">
+                    <Link href="/checkout">Proceed to checkout</Link>
                   </Button>
                 ) : (
-                  <Button size="lg" className="mt-2 w-full" disabled>
-                    Book a pickup
+                  <Button size="lg" className="mt-4 w-full" disabled>
+                    Proceed to checkout
                   </Button>
                 )}
               </>

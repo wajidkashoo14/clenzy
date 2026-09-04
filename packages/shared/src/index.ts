@@ -5,3 +5,7 @@ export * from './schemas/forms.js';
 export * from './schemas/auth.js';
 export * from './schemas/catalog.js';
 export * from './schemas/cart.js';
+export * from './schemas/addresses.js';
+export * from './schemas/slots.js';
+export * from './schemas/coupons.js';
+export * from './schemas/orders.js';

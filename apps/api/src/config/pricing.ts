@@ -17,3 +17,10 @@ export const PRICING_DEFAULTS = {
   /** min ₹99 */
   minExpressSurchargePaise: 9_900,
 } as const;
+
+/**
+ * Confirmed in docs/PROJECT_REQUIREMENTS.md §7's launch-decisions table
+ * ("COD maximum order value — ₹5,000 — ✅") — unlike `PRICING_DEFAULTS`
+ * above, this one is owner-signed-off, not a placeholder.
+ */
+export const COD_MAX_ORDER_VALUE_PAISE = 500_000;

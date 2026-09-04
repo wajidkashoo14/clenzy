@@ -12,18 +12,22 @@ export class AppError extends Error {
   readonly statusCode: number;
   readonly code: string;
   readonly details?: Array<{ field?: string; message: string }>;
+  /** Extra machine-readable fields merged into the error envelope — e.g. `nearestServiceableAreas` per docs/API_SPEC.md §2. */
+  readonly extra?: Record<string, unknown>;
 
   constructor(
     statusCode: number,
     code: string,
     message: string,
     details?: Array<{ field?: string; message: string }>,
+    extra?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'AppError';
     this.statusCode = statusCode;
     this.code = code;
     this.details = details;
+    this.extra = extra;
     Error.captureStackTrace(this, this.constructor);
   }
 
@@ -43,11 +47,16 @@ export class AppError extends Error {
     return new AppError(404, 'NOT_FOUND', message);
   }
 
-  static conflict(code: string, message: string): AppError {
-    return new AppError(409, code, message);
+  static conflict(code: string, message: string, extra?: Record<string, unknown>): AppError {
+    return new AppError(409, code, message, undefined, extra);
   }
 
-  static unprocessable(code: string, message: string, details?: AppError['details']): AppError {
-    return new AppError(422, code, message, details);
+  static unprocessable(
+    code: string,
+    message: string,
+    details?: AppError['details'],
+    extra?: Record<string, unknown>,
+  ): AppError {
+    return new AppError(422, code, message, details, extra);
   }
 }

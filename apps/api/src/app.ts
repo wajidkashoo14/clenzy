@@ -10,12 +10,16 @@ import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import { sanitizeRequest } from './middlewares/sanitize.js';
+import { addressesRouter } from './routes/addresses.route.js';
 import { areasRouter } from './routes/areas.route.js';
 import { authRouter } from './routes/auth.route.js';
 import { cartRouter } from './routes/cart.route.js';
 import { catalogRouter } from './routes/catalog.route.js';
+import { couponsRouter } from './routes/coupons.route.js';
 import { formsRouter } from './routes/forms.route.js';
 import { healthRouter } from './routes/health.route.js';
+import { ordersRouter } from './routes/orders.route.js';
+import { slotsRouter } from './routes/slots.route.js';
 
 export function createApp(): Express {
   const app = express();
@@ -69,6 +73,10 @@ export function createApp(): Express {
   app.use('/api/v1/areas', areasRouter);
   app.use('/api/v1/cart', cartRouter);
   app.use('/api/v1/auth', authRouter);
+  app.use('/api/v1/addresses', addressesRouter);
+  app.use('/api/v1/slots', slotsRouter);
+  app.use('/api/v1/coupons', couponsRouter);
+  app.use('/api/v1/orders', ordersRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

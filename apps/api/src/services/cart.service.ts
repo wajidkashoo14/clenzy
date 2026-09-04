@@ -4,10 +4,10 @@ import { PRICING_DEFAULTS } from '../config/pricing.js';
 import { ServiceItem, type ServiceItemDocument } from '../models/ServiceItem.js';
 import { AppError } from '../utils/AppError.js';
 
-type ItemLean = ServiceItemDocument & { _id: unknown };
+export type ItemLean = ServiceItemDocument & { _id: unknown };
 
 /** Highest-`minQty` tier the quantity qualifies for, else the base price. See docs/DATABASE.md "serviceItems". */
-function resolveTieredPrice(item: ItemLean, quantity: number): number {
+export function resolveTieredPrice(item: ItemLean, quantity: number): number {
   if (!item.tieredPricing || item.tieredPricing.length === 0) return item.price;
 
   const applicable = item.tieredPricing
