@@ -111,7 +111,7 @@ export function ConfirmationContent({ orderNumber }: { orderNumber: string }): R
 
         <div className="border-border mt-4 flex justify-between border-t pt-3 text-base font-semibold">
           <span className="text-text">
-            Total ({order.paymentMethod === 'cod' ? 'Cash on delivery' : order.paymentMethod})
+            Total ({order.paymentMethod === 'cod' ? 'Cash on delivery' : 'Paid online'})
           </span>
           <span className="text-text tabular-nums">{formatRupees(order.pricing.grandTotal)}</span>
         </div>

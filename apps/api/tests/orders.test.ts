@@ -217,12 +217,30 @@ describe('POST /orders', () => {
     expect(capacity?.booked).toBe(1);
   });
 
-  it('rejects online/wallet payment methods — not available until Phase 8', async () => {
+  it('places an online order as PENDING_PAYMENT with a gateway order attached', async () => {
     const { user, input } = await fullSetup();
     const response = await request(app)
       .post('/api/v1/orders')
       .set('Cookie', user.cookie)
       .send({ ...input, paymentMethod: 'online' });
+
+    expect(response.status).toBe(201);
+    const body = bodyOf<{
+      order: OrderPayload;
+      payment?: { gateway: string; razorpayOrderId: string };
+    }>(response).data!;
+    expect(body.order.status).toBe('PENDING_PAYMENT');
+    expect(body.order.paymentStatus).toBe('pending');
+    expect(body.payment?.gateway).toBe('razorpay');
+    expect(body.payment?.razorpayOrderId).toMatch(/^order_fake_/);
+  });
+
+  it('rejects the wallet payment method — not built yet', async () => {
+    const { user, input } = await fullSetup();
+    const response = await request(app)
+      .post('/api/v1/orders')
+      .set('Cookie', user.cookie)
+      .send({ ...input, paymentMethod: 'wallet' });
 
     expect(response.status).toBe(422);
     expect(bodyOf(response).error!.code).toBe('PAYMENT_METHOD_NOT_AVAILABLE');

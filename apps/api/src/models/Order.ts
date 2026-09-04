@@ -48,6 +48,8 @@ export interface OrderSlot {
   window: string;
   label: string;
   estimated?: boolean;
+  /** The `serviceAreaId` `SlotCapacity` was reserved against — not customer-facing; needed to release capacity on cancellation/expiry. */
+  areaId: Types.ObjectId;
 }
 
 /** See docs/DATABASE.md "orders — the core collection". */
@@ -80,6 +82,13 @@ export interface OrderDocument {
   customerNote?: string;
   internalNotes: { note: string; by?: Types.ObjectId; at: Date }[];
   idempotencyKey?: string;
+  cancellation?: {
+    reason: string;
+    cancelledBy?: Types.ObjectId;
+    cancelledByRole: 'customer' | 'staff' | 'admin' | 'system';
+    at: Date;
+    refundEligible: boolean;
+  };
   rescheduleCount: number;
   failedPickupAttempts: number;
   failedDeliveryAttempts: number;
@@ -112,6 +121,7 @@ const slotSchema = new Schema<OrderSlot>(
     window: { type: String, required: true },
     label: { type: String, required: true },
     estimated: { type: Boolean },
+    areaId: { type: Schema.Types.ObjectId, ref: 'ServiceArea', required: true },
   },
   { _id: false },
 );
@@ -181,6 +191,13 @@ const orderSchema = new Schema<OrderDocument>(
       },
     ],
     idempotencyKey: { type: String },
+    cancellation: {
+      reason: { type: String },
+      cancelledBy: { type: Schema.Types.ObjectId, ref: 'User' },
+      cancelledByRole: { type: String, enum: ['customer', 'staff', 'admin', 'system'] },
+      at: { type: Date },
+      refundEligible: { type: Boolean },
+    },
     rescheduleCount: { type: Number, default: 0 },
     failedPickupAttempts: { type: Number, default: 0 },
     failedDeliveryAttempts: { type: Number, default: 0 },

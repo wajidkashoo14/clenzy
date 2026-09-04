@@ -28,6 +28,14 @@ const envSchema = z.object({
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_SENDER_ID: z.string().optional(),
   MSG91_OTP_TEMPLATE_ID: z.string().optional(),
+  // Optional — see apps/api/src/integrations/razorpay/index.ts. Unset means
+  // the console-logging fake adapter is used (KYC pending; see
+  // docs/DEVELOPMENT_PLAN.md Phase 8 and docs/INTEGRATIONS.md §2.2).
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  // Needed even with the fake adapter — it signs/verifies simulated webhooks
+  // the same way a real one would, so that code path is genuinely exercised.
+  RAZORPAY_WEBHOOK_SECRET: z.string().default('dev-webhook-secret-not-for-production-use'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -43,6 +51,20 @@ function loadEnv(): Env {
       console.error(`  ${issue.path.join('.')}: ${issue.message}`);
     }
     console.error('\nCopy apps/api/.env.example to apps/api/.env and fill in real values.\n');
+    process.exit(1);
+  }
+
+  // See docs/PAYMENTS_AND_NOTIFICATIONS.md §1.7: "Use test keys in dev/staging
+  // and live keys only in production — enforce this in config/env.ts by
+  // rejecting a live key when NODE_ENV !== 'production'." Checked both ways —
+  // a live key is just as dangerous outside prod as a test key is inside it.
+  const isLiveKey = parsed.data.RAZORPAY_KEY_ID?.startsWith('rzp_live_');
+  if (isLiveKey && parsed.data.NODE_ENV !== 'production') {
+    console.error(`\n✖ RAZORPAY_KEY_ID is a live key but NODE_ENV=${parsed.data.NODE_ENV}.\n`);
+    process.exit(1);
+  }
+  if (!isLiveKey && parsed.data.RAZORPAY_KEY_ID && parsed.data.NODE_ENV === 'production') {
+    console.error('\n✖ RAZORPAY_KEY_ID is a test key (rzp_test_...) but NODE_ENV=production.\n');
     process.exit(1);
   }
 

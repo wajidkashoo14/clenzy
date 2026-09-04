@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { cartLineInputSchema } from './cart.js';
 
-/** See docs/API_SPEC.md §7 — POST /orders. Phase 7 only supports `paymentMethod: "cod"`. */
+/** See docs/API_SPEC.md §7 — POST /orders. `paymentMethod: "wallet"` isn't built (V2). */
 
 const slotInputSchema = z.object({
   date: z
@@ -84,7 +84,17 @@ export const orderSchema = z.object({
 });
 export type OrderPayload = z.infer<typeof orderSchema>;
 
+/** Present only when `paymentMethod: "online"` — see docs/API_SPEC.md §7's response shape. */
+const razorpayOrderInfoSchema = z.object({
+  gateway: z.literal('razorpay'),
+  razorpayOrderId: z.string(),
+  /** Paise. */
+  amount: z.number().int(),
+  keyId: z.string(),
+});
+
 export const placeOrderResultSchema = z.object({
   order: orderSchema,
+  payment: razorpayOrderInfoSchema.optional(),
 });
 export type PlaceOrderResult = z.infer<typeof placeOrderResultSchema>;

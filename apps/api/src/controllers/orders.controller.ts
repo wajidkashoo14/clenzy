@@ -11,8 +11,8 @@ function requireParam(value: unknown, name: string): string {
 
 export const place = asyncHandler(async (req: Request, res: Response) => {
   const input = placeOrderInputSchema.parse(req.body);
-  const order = await ordersService.placeOrder(req.user!.id, input);
-  res.status(201).json({ success: true, data: { order } });
+  const result = await ordersService.placeOrder(req.user!.id, input);
+  res.status(201).json({ success: true, data: result });
 });
 
 export const list = asyncHandler(async (req: Request, res: Response) => {

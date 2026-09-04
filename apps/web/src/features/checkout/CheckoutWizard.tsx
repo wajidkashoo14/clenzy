@@ -41,7 +41,7 @@ export function CheckoutWizard(): ReactNode {
 
   const [couponResult, setCouponResult] = useState<CouponValidateResult | null>(null);
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('online');
   const [customerNote, setCustomerNote] = useState('');
   const [isPlacing, setIsPlacing] = useState(false);
   const [placeError, setPlaceError] = useState<string>();
@@ -107,12 +107,21 @@ export function CheckoutWizard(): ReactNode {
         customerNote: customerNote || undefined,
         idempotencyKey,
       };
-      const { order } = await placeOrder(input);
+      const { order, payment } = await placeOrder(input);
       // Cleared from the confirmation page, not here — clearing first would empty
       // `lines`, which this component's own guard effect reacts to by redirecting
       // to /cart, racing the navigation below.
-      toast.success('Order placed!');
-      router.push(`/checkout/confirmation/${order.orderNumber}`);
+      if (order.status === 'PENDING_PAYMENT' && payment) {
+        const query = new URLSearchParams({
+          razorpayOrderId: payment.razorpayOrderId,
+          amount: String(payment.amount),
+          keyId: payment.keyId,
+        });
+        router.push(`/checkout/processing/${order.orderNumber}?${query.toString()}`);
+      } else {
+        toast.success('Order placed!');
+        router.push(`/checkout/confirmation/${order.orderNumber}`);
+      }
     } catch (err) {
       setPlaceError(
         err instanceof ApiError ? err.message : 'Could not place your order. Please try again.',

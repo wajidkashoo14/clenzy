@@ -2,6 +2,7 @@ import { createApp } from './app.js';
 import { connectDatabase, disconnectDatabase } from './config/db.js';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
+import { startScheduledJobs } from './jobs/index.js';
 
 async function main(): Promise<void> {
   await connectDatabase();
@@ -10,6 +11,8 @@ async function main(): Promise<void> {
   const server = app.listen(env.PORT, () => {
     logger.info(`Clenzy API listening on port ${env.PORT} [${env.NODE_ENV}]`);
   });
+
+  startScheduledJobs();
 
   const shutdown = (signal: string): void => {
     logger.info(`${signal} received — shutting down gracefully`);

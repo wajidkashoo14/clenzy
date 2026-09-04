@@ -1,4 +1,4 @@
-import type { OrderPayload, PlaceOrderInput } from '@clenzy/shared';
+import type { OrderPayload, PlaceOrderInput, PlaceOrderResult } from '@clenzy/shared';
 import mongoose, { isValidObjectId } from 'mongoose';
 import { COD_MAX_ORDER_VALUE_PAISE, PRICING_DEFAULTS } from '../config/pricing.js';
 import { Address } from '../models/Address.js';
@@ -6,7 +6,7 @@ import { Coupon } from '../models/Coupon.js';
 import { CouponRedemption } from '../models/CouponRedemption.js';
 import { Counter } from '../models/Counter.js';
 import { Order, type OrderDocument, type OrderItemSnapshot } from '../models/Order.js';
-import { Payment } from '../models/Payment.js';
+import { Payment, type PaymentDocument } from '../models/Payment.js';
 import { ServiceCategory } from '../models/ServiceCategory.js';
 import { ServiceItem } from '../models/ServiceItem.js';
 import { SlotCapacity } from '../models/SlotCapacity.js';
@@ -14,8 +14,11 @@ import { SlotTemplate } from '../models/SlotTemplate.js';
 import { resolveTieredPrice } from './cart.service.js';
 import { isSlotCutoffPassed } from './slots.service.js';
 import { validateCouponCore } from './coupons.service.js';
+import { createGatewayOrderForOrder } from './payments.service.js';
 import { AppError } from '../utils/AppError.js';
 import { addDaysToDateString, dayOfWeekOfDateString, nowInKolkata } from '../utils/timezone.js';
+
+type PaymentLean = PaymentDocument & { _id: unknown };
 
 type OrderLean = OrderDocument & { _id: unknown };
 
@@ -131,16 +134,38 @@ async function reserveSlot(
 }
 
 /**
+ * The inverse of `reserveSlot` — called on cancellation/expiry. Exported for
+ * jobs/expireAbandonedOrders.ts. Floors at 0 via the `booked: { $gt: 0 }`
+ * guard so a double-release (e.g. a retried job run) can't go negative.
+ */
+export async function releaseSlot(
+  type: 'pickup' | 'delivery',
+  date: string,
+  window: string,
+  areaId: string,
+  session: mongoose.ClientSession,
+): Promise<void> {
+  await SlotCapacity.findOneAndUpdate(
+    { date, window, type, areaId, booked: { $gt: 0 } },
+    { $inc: { booked: -1 } },
+    { session },
+  );
+}
+
+/**
  * The core order-placement flow — see docs/API_SPEC.md §7. Everything from
  * re-pricing through payment-record creation runs inside one transaction:
  * nothing is written unless the whole order is valid.
  */
-export async function placeOrder(userId: string, input: PlaceOrderInput): Promise<OrderPayload> {
-  // Phase 8 adds Razorpay; Phase 7 is COD-only. Fails fast, no session needed.
-  if (input.paymentMethod !== 'cod') {
+export async function placeOrder(
+  userId: string,
+  input: PlaceOrderInput,
+): Promise<PlaceOrderResult> {
+  // Wallet is V2 — not built. Fails fast, no session needed.
+  if (input.paymentMethod === 'wallet') {
     throw AppError.unprocessable(
       'PAYMENT_METHOD_NOT_AVAILABLE',
-      'Online payment is coming soon — choose cash on delivery for now.',
+      'Wallet payments are not available yet.',
     );
   }
 
@@ -160,6 +185,7 @@ export async function placeOrder(userId: string, input: PlaceOrderInput): Promis
 
   const session = await mongoose.startSession();
   let createdOrder: OrderLean | undefined;
+  let createdPayment: PaymentLean | undefined;
 
   try {
     await session.withTransaction(async () => {
@@ -292,7 +318,7 @@ export async function placeOrder(userId: string, input: PlaceOrderInput): Promis
       const grandTotal =
         itemsSubtotal + expressSurcharge + deliveryFee + taxAmount - discountAmount;
 
-      if (grandTotal > COD_MAX_ORDER_VALUE_PAISE) {
+      if (input.paymentMethod === 'cod' && grandTotal > COD_MAX_ORDER_VALUE_PAISE) {
         throw AppError.unprocessable(
           'COD_LIMIT_EXCEEDED',
           `Cash on delivery is available for orders up to ₹${COD_MAX_ORDER_VALUE_PAISE / 100}.`,
@@ -342,13 +368,17 @@ export async function placeOrder(userId: string, input: PlaceOrderInput): Promis
       const orderNumber = await nextOrderNumber(session);
       const now = new Date();
 
+      // COD is placed directly; online starts PENDING_PAYMENT until the webhook
+      // confirms capture — see docs/PAYMENTS_AND_NOTIFICATIONS.md §1.3/§1.4.
+      const initialStatus = input.paymentMethod === 'cod' ? 'PLACED' : 'PENDING_PAYMENT';
+
       const [order] = await Order.create(
         [
           {
             orderNumber,
             userId,
             type: 'standard',
-            status: 'PLACED',
+            status: initialStatus,
             items: orderItems,
             pricing: {
               itemsSubtotal,
@@ -369,19 +399,21 @@ export async function placeOrder(userId: string, input: PlaceOrderInput): Promis
               date: input.pickupSlot.date,
               window: input.pickupSlot.window,
               label: input.pickupSlot.window,
+              areaId: pickupAddress.serviceAreaId,
             },
             deliverySlot: {
               date: input.deliverySlot.date,
               window: input.deliverySlot.window,
               label: input.deliverySlot.window,
               estimated: false,
+              areaId: deliveryAddress.serviceAreaId,
             },
             isExpress: input.isExpress,
-            paymentMethod: 'cod',
+            paymentMethod: input.paymentMethod,
             paymentStatus: 'pending',
             couponCode: couponDoc?.code,
             couponId: couponDoc?._id,
-            statusHistory: [{ status: 'PLACED', changedByRole: 'customer', at: now }],
+            statusHistory: [{ status: initialStatus, changedByRole: 'customer', at: now }],
             customerNote: input.customerNote,
             internalNotes: [],
             idempotencyKey: input.idempotencyKey,
@@ -392,12 +424,12 @@ export async function placeOrder(userId: string, input: PlaceOrderInput): Promis
       );
       if (!order) throw new Error('Order.create returned no document.');
 
-      await Payment.create(
+      const [payment] = await Payment.create(
         [
           {
             orderId: order._id,
             userId,
-            gateway: 'cod',
+            gateway: input.paymentMethod === 'cod' ? 'cod' : 'razorpay',
             amount: grandTotal,
             currency: 'INR',
             status: 'created',
@@ -408,6 +440,7 @@ export async function placeOrder(userId: string, input: PlaceOrderInput): Promis
         ],
         { session },
       );
+      if (!payment) throw new Error('Payment.create returned no document.');
 
       if (couponDoc) {
         await Coupon.updateOne({ _id: couponDoc._id }, { $inc: { usedCount: 1 } }).session(session);
@@ -426,6 +459,7 @@ export async function placeOrder(userId: string, input: PlaceOrderInput): Promis
       }
 
       createdOrder = order.toObject();
+      createdPayment = payment.toObject();
     });
   } catch (err) {
     if (isDuplicateKeyError(err)) {
@@ -441,7 +475,12 @@ export async function placeOrder(userId: string, input: PlaceOrderInput): Promis
     await session.endSession();
   }
 
-  return toOrderPayload(createdOrder!);
+  const orderPayload = toOrderPayload(createdOrder!);
+  if (input.paymentMethod === 'cod') return { order: orderPayload };
+
+  // Outside the transaction, per docs/API_SPEC.md §7's documented sequence.
+  const gatewayOrder = await createGatewayOrderForOrder(createdOrder!, createdPayment!);
+  return { order: orderPayload, payment: gatewayOrder };
 }
 
 function isDuplicateKeyError(err: unknown): boolean {

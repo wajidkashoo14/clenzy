@@ -35,18 +35,18 @@ const PAYMENT_OPTIONS: {
   disabled: boolean;
 }[] = [
   {
+    value: 'online',
+    label: 'Pay online',
+    description: 'Card, UPI, netbanking, wallets — via Razorpay.',
+    icon: CreditCard,
+    disabled: false,
+  },
+  {
     value: 'cod',
     label: 'Cash on delivery',
     description: 'Pay when your order is delivered.',
     icon: Wallet,
     disabled: false,
-  },
-  {
-    value: 'online',
-    label: 'Pay online',
-    description: 'Card, UPI, netbanking — coming soon.',
-    icon: CreditCard,
-    disabled: true,
   },
 ];
 
