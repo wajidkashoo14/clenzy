@@ -5,6 +5,7 @@ import { Order } from '../models/Order.js';
 import { Payment } from '../models/Payment.js';
 import { WebhookEvent } from '../models/WebhookEvent.js';
 import { changeStatus } from './orderStatus.service.js';
+import { sendNotification } from './notifications/notificationService.js';
 import { verifyWebhookSignature } from '../utils/razorpaySignature.js';
 
 export interface RazorpayPaymentEntity {
@@ -114,8 +115,26 @@ export async function handlePaymentFailed(entity: RazorpayPaymentEntity): Promis
   // Status stays PENDING_PAYMENT — the customer gets a retry CTA. See docs/PAYMENTS_AND_NOTIFICATIONS.md §1.5.
   order.paymentStatus = 'failed';
   await order.save();
+
+  sendNotification({
+    userId: String(order.userId),
+    type: 'payment_failed',
+    orderId: String(order._id),
+    data: { orderNumber: order.orderNumber },
+  }).catch((err: unknown) =>
+    logger.error({ err, orderNumber: order.orderNumber }, 'sendNotification failed'),
+  );
 }
 
+/**
+ * No `refund_completed` notification fires here deliberately — the wired
+ * refund paths (cancelOrder, cancelOrderAdmin, refundOrder) already notify
+ * synchronously via `notifyRefund()` right when `applyRefund()` returns,
+ * without waiting for this async gateway confirmation. Firing it again here
+ * would double-notify the customer for the same refund with no dedupe
+ * mechanism in place. This handler's job is reconciling `paymentStatus` for
+ * accuracy, not customer messaging.
+ */
 async function handleRefundProcessed(entity: RazorpayRefundEntity): Promise<void> {
   const payment = await Payment.findOne({ gatewayPaymentId: entity.payment_id });
   if (!payment) return;

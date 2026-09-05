@@ -10,6 +10,7 @@ import type {
 } from '@clenzy/shared';
 import { ORDER_STATUSES } from '@clenzy/shared';
 import mongoose, { isValidObjectId, Types, type FilterQuery } from 'mongoose';
+import { logger } from '../config/logger.js';
 import { Coupon } from '../models/Coupon.js';
 import { CouponRedemption } from '../models/CouponRedemption.js';
 import { Order, type OrderDocument } from '../models/Order.js';
@@ -19,6 +20,9 @@ import { ServiceItem } from '../models/ServiceItem.js';
 import { User } from '../models/User.js';
 import { applyRefund, applyRefundToOrderPricing } from './payments.service.js';
 import { changeStatus, type TransitionActor } from './orderStatus.service.js';
+import { sendNotification } from './notifications/notificationService.js';
+import { notifyOrderStatusChange } from './notifications/orderStatusNotifications.js';
+import { notifyRefund } from './notifications/refundNotifications.js';
 import { releaseSlot, reserveSlot } from './orders.service.js';
 import { AppError } from '../utils/AppError.js';
 
@@ -280,6 +284,13 @@ export async function cancelOrderAdmin(
     await session.endSession();
   }
 
+  notifyOrderStatusChange(cancelledOrder!, 'CANCELLED').catch((err: unknown) =>
+    logger.error(
+      { err, orderNumber: cancelledOrder!.orderNumber },
+      'notifyOrderStatusChange failed',
+    ),
+  );
+
   if (refundTarget) {
     await applyRefund(
       refundTarget.gatewayPaymentId,
@@ -292,6 +303,9 @@ export async function cancelOrderAdmin(
       applyRefundToOrderPricing(refreshed, refundTarget.amount);
       await refreshed.save();
       cancelledOrder = refreshed.toObject();
+      notifyRefund(refreshed, refundTarget.amount).catch((err: unknown) =>
+        logger.error({ err, orderNumber: refreshed.orderNumber }, 'notifyRefund failed'),
+      );
     }
   }
 
@@ -382,6 +396,17 @@ export async function reviseOrderItems(
     at: new Date(),
   });
   await order.save();
+
+  if (requiresApproval) {
+    sendNotification({
+      userId: String(order.userId),
+      type: 'price_revision_needed',
+      orderId: String(order._id),
+      data: { orderNumber: order.orderNumber, originalTotal, revisedTotal, reason: input.reason },
+    }).catch((err: unknown) =>
+      logger.error({ err, orderNumber: order.orderNumber }, 'sendNotification failed'),
+    );
+  }
 
   return order.toObject();
 }

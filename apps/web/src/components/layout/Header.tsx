@@ -7,6 +7,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { NotificationBell } from '@/features/notifications/NotificationBell';
 import { useAuthStore } from '@/stores/authStore';
 import { useCartStore } from '@/stores/cartStore';
 import { cn } from '@/lib/cn';
@@ -122,6 +123,8 @@ export function Header({
               <Phone className="size-4" aria-hidden="true" />
               {phone}
             </a>
+
+            {user && <NotificationBell />}
 
             <button
               type="button"

@@ -193,9 +193,11 @@ describe('admin route role gating', () => {
   it('rejects a customer token on every admin route with 403', async () => {
     const customer = await createUserWithRole('customer');
     for (const route of routes) {
-      const response = await request(app)
-        [route.method](route.path('000000000000000000000000'))
-        .set('Cookie', customer.cookie);
+      const agent = request(app);
+      const response = await agent[route.method](route.path('000000000000000000000000')).set(
+        'Cookie',
+        customer.cookie,
+      );
       expect(response.status, `${route.method.toUpperCase()} ${route.path('id')}`).toBe(403);
     }
   });

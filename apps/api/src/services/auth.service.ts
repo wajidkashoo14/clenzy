@@ -1,11 +1,14 @@
 import type { AuthUser } from '@clenzy/shared';
 import bcrypt from 'bcryptjs';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { env } from '../config/env.js';
+import { logger } from '../config/logger.js';
 import { smsAdapter } from '../integrations/msg91/index.js';
 import { emailAdapter } from '../integrations/resend/index.js';
 import { OtpRequest } from '../models/OtpRequest.js';
 import { RefreshToken } from '../models/RefreshToken.js';
 import { User, type UserDocument } from '../models/User.js';
+import { sendNotification } from './notifications/notificationService.js';
 import { AppError } from '../utils/AppError.js';
 import { matchesHash, sha256Hex } from '../utils/hash.js';
 import { generateOtp } from '../utils/otp.js';
@@ -146,6 +149,16 @@ export async function verifyOtp(
   user.lastLoginAt = new Date();
   await user.save();
 
+  if (isNewUser) {
+    sendNotification({
+      userId: String(user._id),
+      type: 'signup_welcome',
+      data: { name: user.name },
+    }).catch((err: unknown) =>
+      logger.error({ err, userId: String(user._id) }, 'sendNotification failed'),
+    );
+  }
+
   const tokens = await issueSession(user, meta);
   return { user: toAuthUser(user, isNewUser), ...tokens };
 }
@@ -257,7 +270,7 @@ export async function forgotPassword(email: string): Promise<void> {
   user.passwordResetExpiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
   await user.save();
 
-  const resetLink = `/reset-password?token=${token}`;
+  const resetLink = `${env.WEB_APP_URL}/reset-password?token=${token}`;
   await emailAdapter.sendPasswordResetEmail(email, resetLink);
 }
 

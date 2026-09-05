@@ -1,10 +1,11 @@
-import mongoose from 'mongoose';
+import mongoose, { type HydratedDocument } from 'mongoose';
 import { PAYMENT_TIMING } from '../config/payments.js';
 import { logger } from '../config/logger.js';
 import { Coupon } from '../models/Coupon.js';
 import { CouponRedemption } from '../models/CouponRedemption.js';
-import { Order } from '../models/Order.js';
+import { Order, type OrderDocument } from '../models/Order.js';
 import { Payment } from '../models/Payment.js';
+import { notifyOrderStatusChange } from '../services/notifications/orderStatusNotifications.js';
 import { releaseSlot } from '../services/orders.service.js';
 import { changeStatus } from '../services/orderStatus.service.js';
 
@@ -24,6 +25,7 @@ export async function expireAbandonedOrders(): Promise<{ expired: number }> {
   let expired = 0;
   for (const stale of staleOrders) {
     const session = await mongoose.startSession();
+    let cancelled: HydratedDocument<OrderDocument> | null = null;
     try {
       await session.withTransaction(async () => {
         // Re-check inside the transaction — a webhook may have resolved it since the query above.
@@ -69,12 +71,20 @@ export async function expireAbandonedOrders(): Promise<{ expired: number }> {
           { orderId: order._id, status: 'created' },
           { $set: { failureReason: 'Abandoned — payment window expired' } },
         ).session(session);
+
+        cancelled = order;
       });
       expired += 1;
     } catch (err) {
       logger.error({ err, orderNumber: stale.orderNumber }, 'Failed to expire an abandoned order');
     } finally {
       await session.endSession();
+    }
+
+    if (cancelled) {
+      notifyOrderStatusChange(cancelled, 'CANCELLED').catch((err: unknown) =>
+        logger.error({ err, orderNumber: stale.orderNumber }, 'notifyOrderStatusChange failed'),
+      );
     }
   }
 

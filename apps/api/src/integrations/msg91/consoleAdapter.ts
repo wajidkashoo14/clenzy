@@ -13,4 +13,8 @@ export const consoleSmsAdapter: SmsAdapter = {
     logger.info(`[fake SMS] OTP for ${phone}: ${code}`);
     return Promise.resolve();
   },
+  sendTransactionalSms(phone, templateId, variables) {
+    logger.info({ phone, templateId, variables }, '[fake SMS] transactional');
+    return Promise.resolve({ messageId: `fake-${Date.now()}` });
+  },
 };

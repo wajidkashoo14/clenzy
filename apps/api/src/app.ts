@@ -21,6 +21,7 @@ import { couponsRouter } from './routes/coupons.route.js';
 import { devRouter } from './routes/dev.route.js';
 import { formsRouter } from './routes/forms.route.js';
 import { healthRouter } from './routes/health.route.js';
+import { notificationsRouter } from './routes/notifications.route.js';
 import { ordersRouter } from './routes/orders.route.js';
 import { paymentsRouter } from './routes/payments.route.js';
 import { slotsRouter } from './routes/slots.route.js';
@@ -86,6 +87,7 @@ export function createApp(): Express {
   app.use('/api/v1/slots', slotsRouter);
   app.use('/api/v1/coupons', couponsRouter);
   app.use('/api/v1/orders', ordersRouter);
+  app.use('/api/v1/notifications', notificationsRouter);
   app.use('/api/v1/payments', paymentsRouter);
   app.use('/api/v1/admin', adminRouter);
   app.use('/api/v1/agent', agentRouter);

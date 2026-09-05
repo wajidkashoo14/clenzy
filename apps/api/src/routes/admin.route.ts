@@ -22,3 +22,15 @@ adminRouter.post('/orders/:id/notes', adminController.addNote);
 adminRouter.post('/orders/:id/cancel', adminController.cancelOrder);
 // ADMIN only — see docs/API_SPEC.md §10's explicit note on the refund endpoint.
 adminRouter.post('/orders/:id/refund', requireRole('admin'), adminController.refundOrder);
+
+// ADMIN only — controls real SMS/email spend, same bar as the refund endpoint.
+adminRouter.get(
+  '/notifications/settings',
+  requireRole('admin'),
+  adminController.getNotificationSettings,
+);
+adminRouter.patch(
+  '/notifications/settings',
+  requireRole('admin'),
+  adminController.updateNotificationSettings,
+);

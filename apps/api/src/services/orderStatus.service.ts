@@ -1,6 +1,8 @@
 import type { OrderStatus, Role } from '@clenzy/shared';
 import { Types, type ClientSession, type HydratedDocument } from 'mongoose';
+import { logger } from '../config/logger.js';
 import type { OrderDocument } from '../models/Order.js';
+import { notifyOrderStatusChange } from './notifications/orderStatusNotifications.js';
 import { AppError } from '../utils/AppError.js';
 
 /** A transition can be performed by a real user role, or by the server itself (webhooks, crons). */
@@ -115,8 +117,12 @@ export interface ChangeStatusOptions {
  * `order.status` directly." Mutates and saves the passed-in document;
  * callers control the session/transaction it runs in.
  *
- * Notification triggers hook in here once Phase 10 builds the notification
- * service — deliberately not stubbed out early per docs/AI_CODING_RULES.md.
+ * Notification triggers hook in here — see
+ * docs/PAYMENTS_AND_NOTIFICATIONS.md §3.3: never send a notification inside
+ * a database transaction, since a later rollback can't un-send it. When the
+ * caller passes a `session` (it's inside `session.withTransaction(...)`),
+ * this deliberately skips notifying — that caller must call
+ * `notifyOrderStatusChange(order, to)` itself once its transaction commits.
  */
 export async function changeStatus(
   order: HydratedDocument<OrderDocument>,
@@ -139,4 +145,10 @@ export async function changeStatus(
   if (to === 'COMPLETED') order.completedAt = new Date();
 
   await order.save(opts.session ? { session: opts.session } : undefined);
+
+  if (!opts.session) {
+    notifyOrderStatusChange(order, to).catch((err: unknown) => {
+      logger.error({ err, orderNumber: order.orderNumber, to }, 'notifyOrderStatusChange failed');
+    });
+  }
 }

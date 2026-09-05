@@ -14,4 +14,8 @@ export const consoleEmailAdapter: EmailAdapter = {
     logger.info(`[fake email] Password reset for ${email}: ${resetLink}`);
     return Promise.resolve();
   },
+  sendEmail(to, subject) {
+    logger.info(`[fake email] To ${to}: ${subject}`);
+    return Promise.resolve({ messageId: `fake-${Date.now()}` });
+  },
 };

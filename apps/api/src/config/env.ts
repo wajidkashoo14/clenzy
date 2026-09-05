@@ -20,6 +20,10 @@ const envSchema = z.object({
     .min(1, 'CORS_ORIGINS is required, e.g. "http://localhost:3000".')
     .transform((value) => value.split(',').map((origin) => origin.trim())),
   COOKIE_DOMAIN: z.string().default('localhost'),
+  // The customer-facing web app's origin — used to build absolute deep links
+  // in emails/SMS (a relative path breaks once the recipient isn't already
+  // on the site). See docs/PAYMENTS_AND_NOTIFICATIONS.md §3.3.
+  WEB_APP_URL: z.string().default('http://localhost:3000'),
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters.'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters.'),
   // Optional — see apps/api/src/integrations/msg91/index.ts. Unset means the
@@ -28,6 +32,24 @@ const envSchema = z.object({
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_SENDER_ID: z.string().optional(),
   MSG91_OTP_TEMPLATE_ID: z.string().optional(),
+  // One DLT-registered template id per "SMS justified" notification event —
+  // see docs/PAYMENTS_AND_NOTIFICATIONS.md §3.2 and config/notifications.ts.
+  // Unset means that event's SMS is skipped (in-app/email still send) —
+  // DLT template approval is an external dependency, not a code one; see
+  // docs/DEVELOPMENT_PLAN.md Phase 10 "Dependencies".
+  MSG91_TEMPLATE_ORDER_PLACED: z.string().optional(),
+  MSG91_TEMPLATE_PAYMENT_FAILED: z.string().optional(),
+  MSG91_TEMPLATE_PICKUP_REMINDER: z.string().optional(),
+  MSG91_TEMPLATE_PRICE_REVISION: z.string().optional(),
+  MSG91_TEMPLATE_OUT_FOR_DELIVERY: z.string().optional(),
+  MSG91_TEMPLATE_PICKUP_DELIVERY_FAILED: z.string().optional(),
+  MSG91_TEMPLATE_ORDER_CANCELLED: z.string().optional(),
+  MSG91_TEMPLATE_REFUND_COMPLETED: z.string().optional(),
+  // Optional — see apps/api/src/integrations/resend/index.ts. Unset means
+  // the console-logging fake adapter is used (no domain/API key yet; see
+  // docs/INTEGRATIONS.md §2.4).
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('Clenzy <orders@clenzy.dev>'),
   // Optional — see apps/api/src/integrations/razorpay/index.ts. Unset means
   // the console-logging fake adapter is used (KYC pending; see
   // docs/DEVELOPMENT_PLAN.md Phase 8 and docs/INTEGRATIONS.md §2.2).

@@ -8,6 +8,7 @@ import type {
 } from '@clenzy/shared';
 import { ORDER_STATUS_LABELS } from '@clenzy/shared';
 import mongoose, { isValidObjectId, Types } from 'mongoose';
+import { logger } from '../config/logger.js';
 import { COD_MAX_ORDER_VALUE_PAISE, PRICING_DEFAULTS } from '../config/pricing.js';
 import { Address } from '../models/Address.js';
 import { Coupon } from '../models/Coupon.js';
@@ -29,6 +30,9 @@ import {
   createGatewayOrderForOrder,
 } from './payments.service.js';
 import { changeStatus } from './orderStatus.service.js';
+import { sendNotification } from './notifications/notificationService.js';
+import { notifyOrderStatusChange } from './notifications/orderStatusNotifications.js';
+import { notifyRefund } from './notifications/refundNotifications.js';
 import { AppError } from '../utils/AppError.js';
 import { addDaysToDateString, dayOfWeekOfDateString, nowInKolkata } from '../utils/timezone.js';
 
@@ -513,7 +517,20 @@ export async function placeOrder(
   }
 
   const orderPayload = toOrderPayload(createdOrder!);
-  if (input.paymentMethod === 'cod') return { order: orderPayload };
+  if (input.paymentMethod === 'cod') {
+    // A COD order is created directly at PLACED (see `initialStatus` above) —
+    // it never goes through changeStatus(), so notifyOrderStatusChange()'s
+    // automatic hook never runs for it. An online order doesn't need this:
+    // it starts PENDING_PAYMENT and only reaches PLACED via the webhook's
+    // changeStatus() call, which fires the notification itself.
+    notifyOrderStatusChange(createdOrder!, 'PLACED').catch((err: unknown) =>
+      logger.error(
+        { err, orderNumber: createdOrder!.orderNumber },
+        'notifyOrderStatusChange failed',
+      ),
+    );
+    return { order: orderPayload };
+  }
 
   // Outside the transaction, per docs/API_SPEC.md §7's documented sequence.
   const gatewayOrder = await createGatewayOrderForOrder(createdOrder!, createdPayment!);
@@ -620,6 +637,13 @@ export async function cancelOrder(
     await session.endSession();
   }
 
+  notifyOrderStatusChange(cancelledOrder!, 'CANCELLED').catch((err: unknown) =>
+    logger.error(
+      { err, orderNumber: cancelledOrder!.orderNumber },
+      'notifyOrderStatusChange failed',
+    ),
+  );
+
   if (refundTarget) {
     // Outside the transaction — a real gateway call shouldn't be inside one. See payments.service.ts.
     await applyRefund(
@@ -633,6 +657,9 @@ export async function cancelOrder(
       applyRefundToOrderPricing(refreshedOrder, refundTarget.amount);
       await refreshedOrder.save();
       cancelledOrder = refreshedOrder.toObject();
+      notifyRefund(refreshedOrder, refundTarget.amount).catch((err: unknown) =>
+        logger.error({ err, orderNumber: refreshedOrder.orderNumber }, 'notifyRefund failed'),
+      );
     }
   }
 
@@ -658,6 +685,7 @@ export async function rescheduleOrder(
 ): Promise<OrderPayload> {
   const session = await mongoose.startSession();
   let updatedOrder: OrderLean | undefined;
+  let recoveredTo: OrderStatus | undefined;
 
   try {
     await session.withTransaction(async () => {
@@ -719,6 +747,7 @@ export async function rescheduleOrder(
           note: `Rescheduled ${input.type}`,
           session,
         });
+        recoveredTo = recoveryTarget;
       } else {
         await order.save({ session });
       }
@@ -727,6 +756,15 @@ export async function rescheduleOrder(
     });
   } finally {
     await session.endSession();
+  }
+
+  if (recoveredTo) {
+    notifyOrderStatusChange(updatedOrder!, recoveredTo).catch((err: unknown) =>
+      logger.error(
+        { err, orderNumber: updatedOrder!.orderNumber },
+        'notifyOrderStatusChange failed',
+      ),
+    );
   }
 
   return toOrderPayload(updatedOrder!);
@@ -845,6 +883,19 @@ export async function requestReclean(userId: string, orderNumber: string): Promi
   } finally {
     await session.endSession();
   }
+
+  sendNotification({
+    userId,
+    type: 'reclean_accepted',
+    orderId: String(createdReclean!._id),
+    data: {
+      parentOrderNumber: parent.orderNumber,
+      recleanOrderNumber: createdReclean!.orderNumber,
+      pickupDate: createdReclean!.pickupSlot.date,
+    },
+  }).catch((err: unknown) =>
+    logger.error({ err, orderNumber: createdReclean!.orderNumber }, 'sendNotification failed'),
+  );
 
   return toOrderPayload(createdReclean!);
 }

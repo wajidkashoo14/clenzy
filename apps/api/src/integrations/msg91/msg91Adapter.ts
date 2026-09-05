@@ -35,5 +35,28 @@ export function createMsg91Adapter(): SmsAdapter {
         throw new Error('SMS_PROVIDER_FAILED');
       }
     },
+
+    async sendTransactionalSms(phone, templateId, variables) {
+      const response = await fetch('https://control.msg91.com/api/v5/flow/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', authkey: env.MSG91_AUTH_KEY! },
+        body: JSON.stringify({
+          template_id: templateId,
+          sender: env.MSG91_SENDER_ID,
+          short_url: '0',
+          recipients: [{ mobiles: phone.replace('+', ''), ...variables }],
+        }),
+      });
+
+      const body = (await response.json().catch(() => ({}))) as { request_id?: string };
+      if (!response.ok) {
+        logger.error(
+          { status: response.status, body, templateId },
+          'MSG91 transactional SMS failed',
+        );
+        throw new Error('SMS_PROVIDER_FAILED');
+      }
+      return { messageId: body.request_id ?? `msg91-${Date.now()}` };
+    },
   };
 }

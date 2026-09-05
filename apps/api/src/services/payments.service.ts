@@ -7,9 +7,11 @@ import type {
 } from '@clenzy/shared';
 import { Types, type HydratedDocument } from 'mongoose';
 import { env } from '../config/env.js';
+import { logger } from '../config/logger.js';
 import { razorpayAdapter } from '../integrations/razorpay/index.js';
 import { Order, type OrderDocument } from '../models/Order.js';
 import { Payment, type PaymentDocument } from '../models/Payment.js';
+import { notifyRefund } from './notifications/refundNotifications.js';
 import { AppError } from '../utils/AppError.js';
 import { verifyCheckoutSignature } from '../utils/razorpaySignature.js';
 
@@ -223,6 +225,10 @@ export async function refundOrder(
     at: new Date(),
   });
   await order.save();
+
+  notifyRefund(order, amount).catch((err: unknown) =>
+    logger.error({ err, orderNumber: order.orderNumber }, 'notifyRefund failed'),
+  );
 
   return result;
 }

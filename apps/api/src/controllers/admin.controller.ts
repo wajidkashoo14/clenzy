@@ -3,6 +3,7 @@ import {
   adminCancelOrderInputSchema,
   adminOrderListQuerySchema,
   assignAgentInputSchema,
+  notificationSettingsInputSchema,
   orderRosterQuerySchema,
   refundInputSchema,
   rescheduleOrderInputSchema,
@@ -12,6 +13,7 @@ import {
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import * as adminOrdersService from '../services/adminOrders.service.js';
+import * as notificationSettingsService from '../services/notifications/notificationSettings.service.js';
 import * as paymentsService from '../services/payments.service.js';
 import { AppError } from '../utils/AppError.js';
 
@@ -107,4 +109,18 @@ export const roster = asyncHandler(async (req: Request, res: Response) => {
   const query = orderRosterQuerySchema.parse(req.query);
   const orders = await adminOrdersService.getOrderRoster(query);
   res.status(200).json({ success: true, data: { orders } });
+});
+
+export const getNotificationSettings = asyncHandler(async (_req: Request, res: Response) => {
+  const result = await notificationSettingsService.getNotificationSettings();
+  res.status(200).json({ success: true, data: result });
+});
+
+export const updateNotificationSettings = asyncHandler(async (req: Request, res: Response) => {
+  const input = notificationSettingsInputSchema.parse(req.body);
+  if (!notificationSettingsService.isToggleableType(input.type)) {
+    throw AppError.badRequest('NOT_TOGGLEABLE', `"${input.type}" has no paid channel to toggle.`);
+  }
+  await notificationSettingsService.setNotificationSetting(input);
+  res.status(200).json({ success: true, data: { updated: true } });
 });
