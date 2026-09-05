@@ -2,6 +2,8 @@ import type {
   AdminCancelOrderInput,
   AdminOrderListQuery,
   AssignAgentInput,
+  BulkAssignRosterInput,
+  CreateManualOrderInput,
   OrderRosterQuery,
   OrderStatus,
   ReviseOrderItemsInput,
@@ -10,6 +12,7 @@ import type {
 } from '@clenzy/shared';
 import { ORDER_STATUSES } from '@clenzy/shared';
 import mongoose, { isValidObjectId, Types, type FilterQuery } from 'mongoose';
+import { COD_MAX_ORDER_VALUE_PAISE, PRICING_DEFAULTS } from '../config/pricing.js';
 import { logger } from '../config/logger.js';
 import { Coupon } from '../models/Coupon.js';
 import { CouponRedemption } from '../models/CouponRedemption.js';
@@ -18,13 +21,20 @@ import { Payment } from '../models/Payment.js';
 import { ServiceCategory } from '../models/ServiceCategory.js';
 import { ServiceItem } from '../models/ServiceItem.js';
 import { User } from '../models/User.js';
+import { resolveAreaForPincode } from './areas.service.js';
 import { applyRefund, applyRefundToOrderPricing } from './payments.service.js';
-import { changeStatus, type TransitionActor } from './orderStatus.service.js';
+import {
+  changeStatus,
+  getAvailableTransitions,
+  type TransitionActor,
+} from './orderStatus.service.js';
 import { sendNotification } from './notifications/notificationService.js';
 import { notifyOrderStatusChange } from './notifications/orderStatusNotifications.js';
 import { notifyRefund } from './notifications/refundNotifications.js';
-import { releaseSlot, reserveSlot } from './orders.service.js';
+import { nextOrderNumber, priceOrderItems, releaseSlot, reserveSlot } from './orders.service.js';
+import { normalizePhoneIN } from '../utils/phone.js';
 import { AppError } from '../utils/AppError.js';
+import { addDaysToDateString, nowInKolkata } from '../utils/timezone.js';
 
 type OrderLean = OrderDocument & { _id: unknown };
 
@@ -44,12 +54,22 @@ const PRE_DELIVERY_STATUSES: OrderStatus[] = [
 ];
 
 /** See docs/API_SPEC.md §10 — GET /admin/orders. No admin UI consumes this yet (Phase 12); returns lean documents as-is. */
+function splitCsv(value: string): string[] {
+  return value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export async function listOrdersAdmin(
   query: AdminOrderListQuery,
 ): Promise<{ orders: OrderLean[]; total: number; page: number; pageSize: number }> {
   const filter: FilterQuery<OrderDocument> = {};
-  if (query.status) filter.status = query.status;
-  if (query.paymentStatus) filter.paymentStatus = query.paymentStatus;
+  if (query.status) filter.status = { $in: splitCsv(query.status) };
+  if (query.paymentStatus) filter.paymentStatus = { $in: splitCsv(query.paymentStatus) };
+  if (query.paymentMethod) filter.paymentMethod = { $in: splitCsv(query.paymentMethod) };
+  if (query.isExpress) filter.isExpress = true;
+  if (query.hasPriceRevision) filter['priceRevision.requiresApproval'] = true;
   if (query.from || query.to) {
     filter.createdAt = {
       ...(query.from && { $gte: new Date(query.from) }),
@@ -57,12 +77,36 @@ export async function listOrdersAdmin(
     };
   }
 
-  // Two independent $or-shaped conditions (agent match, text search) — combined
-  // via $and so setting both doesn't have the second silently clobber the first.
+  // Independent $or-shaped conditions (agent match, area match, needs-attention,
+  // text search) — combined via $and so setting several doesn't have one clobber another.
   const andConditions: FilterQuery<OrderDocument>[] = [];
   if (query.agentId && isValidObjectId(query.agentId)) {
     andConditions.push({
       $or: [{ assignedPickupAgentId: query.agentId }, { assignedDeliveryAgentId: query.agentId }],
+    });
+  }
+  if (query.areaId && isValidObjectId(query.areaId)) {
+    andConditions.push({
+      $or: [{ 'pickupSlot.areaId': query.areaId }, { 'deliverySlot.areaId': query.areaId }],
+    });
+  }
+  if (query.needsAttention) {
+    // Mirrors dashboard.service.ts's needs-attention categories, minus
+    // "overdue PROCESSING" (that one needs a statusHistory scan, not a plain filter).
+    const today = nowInKolkata().dateString;
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    andConditions.push({
+      $or: [
+        { paymentStatus: 'failed', createdAt: { $gte: dayAgo } },
+        { 'priceRevision.requiresApproval': true },
+        { status: { $in: ['PICKUP_FAILED', 'DELIVERY_FAILED'] } },
+        {
+          status: { $in: ['CONFIRMED', 'PICKUP_SCHEDULED'] },
+          'pickupSlot.date': today,
+          assignedPickupAgentId: { $exists: false },
+        },
+        { paymentStatus: 'refund_pending' },
+      ],
     });
   }
   if (query.q) {
@@ -70,6 +114,12 @@ export async function listOrdersAdmin(
       $or: [
         { orderNumber: new RegExp(query.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') },
         { 'pickupAddress.contactPhone': query.q },
+        {
+          'pickupAddress.contactName': new RegExp(
+            query.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            'i',
+          ),
+        },
       ],
     });
   }
@@ -84,11 +134,14 @@ export async function listOrdersAdmin(
   return { orders, total, page: query.page, pageSize: query.pageSize };
 }
 
-export async function getOrderAdmin(orderId: string): Promise<OrderLean> {
+export async function getOrderAdmin(
+  orderId: string,
+  actorRole: Role,
+): Promise<OrderLean & { availableTransitions: OrderStatus[] }> {
   if (!isValidObjectId(orderId)) throw AppError.notFound('Order not found.');
   const order = await Order.findById(orderId).lean();
   if (!order) throw AppError.notFound('Order not found.');
-  return order;
+  return { ...order, availableTransitions: getAvailableTransitions(order.status, actorRole) };
 }
 
 /** See docs/API_SPEC.md §10 — PATCH /admin/orders/:id/status. Goes through the single transition-map function; see docs/PAYMENTS_AND_NOTIFICATIONS.md §2.1. */
@@ -420,4 +473,210 @@ export async function getOrderRoster(query: OrderRosterQuery): Promise<OrderLean
   return Order.find({ [slotField]: query.date, status: { $in: relevantStatuses } })
     .sort({ [`${query.type}Slot.window`]: 1 })
     .lean();
+}
+
+/**
+ * See docs/ADMIN_DASHBOARD.md §3 "Today's Roster" — bulk-assign an entire
+ * window to one agent. Reuses `assignAgent()` per order (rather than a raw
+ * bulk update) so the pickup auto-advance-to-PICKUP_SCHEDULED side effect and
+ * its notification still fire for each order, same as a single assignment.
+ */
+export async function bulkAssignRosterWindow(
+  actorUserId: string,
+  input: BulkAssignRosterInput,
+): Promise<OrderLean[]> {
+  const rosterOrders = await getOrderRoster({ date: input.date, type: input.type });
+  const windowField = input.type === 'pickup' ? 'pickupSlot' : 'deliverySlot';
+  const matching = rosterOrders.filter((order) => order[windowField].window === input.window);
+
+  const updated: OrderLean[] = [];
+  for (const order of matching) {
+    updated.push(
+      await assignAgent(actorUserId, String(order._id), {
+        type: input.type,
+        agentId: input.agentId,
+      }),
+    );
+  }
+  return updated;
+}
+
+function manualSnapshotAddress(input: CreateManualOrderInput['pickupAddress']) {
+  return {
+    label: 'other',
+    contactName: input.contactName,
+    contactPhone: input.contactPhone,
+    line1: input.line1,
+    line2: input.line2,
+    landmark: input.landmark,
+    area: input.area,
+    city: input.city,
+    state: 'Jammu and Kashmir',
+    pincode: input.pincode,
+  };
+}
+
+/**
+ * See docs/API_SPEC.md §10 — POST /admin/orders. Staff-driven intake for
+ * phone/WhatsApp orders — COD only, no coupon support, addresses are
+ * staff-entered snapshots rather than a saved Address record (the customer
+ * may not even have an account yet). Reuses `priceOrderItems()`, the same
+ * pricing core `placeOrder()` uses, so catalog rules never diverge between
+ * the two entry points.
+ */
+export async function createManualOrder(
+  actorUserId: string,
+  input: CreateManualOrderInput,
+): Promise<OrderLean> {
+  const phone = normalizePhoneIN(input.customerPhone);
+  if (!phone) throw AppError.badRequest('INVALID_PHONE', 'Enter a valid customer phone number.');
+
+  let customer = await User.findOne({ phone });
+  if (!customer) {
+    customer = await User.create({
+      phone,
+      phoneVerified: true,
+      name: input.customerName,
+      role: 'customer',
+    });
+  }
+
+  const [pickupResolved, deliveryResolved] = await Promise.all([
+    resolveAreaForPincode(input.pickupAddress.pincode),
+    resolveAreaForPincode(input.deliveryAddress.pincode),
+  ]);
+  if (!pickupResolved.area || !deliveryResolved.area) {
+    throw AppError.unprocessable(
+      'ADDRESS_NOT_SERVICEABLE',
+      'One of the addresses is outside the delivery area.',
+    );
+  }
+  const pricingAreaId = String(pickupResolved.area._id);
+
+  const session = await mongoose.startSession();
+  let createdOrder: OrderLean | undefined;
+
+  try {
+    await session.withTransaction(async () => {
+      const { orderItems, itemsSubtotal, expressSurcharge, taxAmount, maxTurnaroundHours } =
+        await priceOrderItems(input.items, pricingAreaId, input.isExpress, session, 'admin');
+
+      const combinedSubtotal = itemsSubtotal + expressSurcharge;
+      const deliveryFee =
+        combinedSubtotal >= PRICING_DEFAULTS.freeDeliveryThresholdPaise
+          ? 0
+          : PRICING_DEFAULTS.deliveryFeePaise;
+
+      if (combinedSubtotal < PRICING_DEFAULTS.minOrderValuePaise) {
+        throw AppError.unprocessable(
+          'MIN_ORDER_NOT_MET',
+          `The minimum order value is ₹${PRICING_DEFAULTS.minOrderValuePaise / 100}.`,
+        );
+      }
+
+      const grandTotal = itemsSubtotal + expressSurcharge + deliveryFee + taxAmount;
+      if (grandTotal > COD_MAX_ORDER_VALUE_PAISE) {
+        throw AppError.unprocessable(
+          'COD_LIMIT_EXCEEDED',
+          `Cash on delivery is available for orders up to ₹${COD_MAX_ORDER_VALUE_PAISE / 100}.`,
+        );
+      }
+
+      const turnaroundHours = input.isExpress ? 24 : maxTurnaroundHours;
+      const earliestDeliveryDate = addDaysToDateString(
+        input.pickupSlot.date,
+        Math.ceil(turnaroundHours / 24),
+      );
+      if (input.deliverySlot.date < earliestDeliveryDate) {
+        throw AppError.unprocessable(
+          'INVALID_DELIVERY_DATE',
+          `The earliest possible delivery date is ${earliestDeliveryDate}.`,
+        );
+      }
+
+      await reserveSlot(
+        'pickup',
+        input.pickupSlot.date,
+        input.pickupSlot.window,
+        pricingAreaId,
+        session,
+      );
+      await reserveSlot(
+        'delivery',
+        input.deliverySlot.date,
+        input.deliverySlot.window,
+        String(deliveryResolved.area!._id),
+        session,
+      );
+
+      const orderNumber = await nextOrderNumber(session);
+      const now = new Date();
+
+      const [order] = await Order.create(
+        [
+          {
+            orderNumber,
+            userId: customer._id,
+            type: 'standard',
+            status: 'PLACED',
+            items: orderItems,
+            pricing: {
+              itemsSubtotal,
+              expressSurcharge,
+              deliveryFee,
+              pickupFee: 0,
+              smallOrderFee: 0,
+              discountAmount: 0,
+              taxAmount,
+              walletApplied: 0,
+              grandTotal,
+              amountPaid: 0,
+              amountRefunded: 0,
+            },
+            pickupAddress: manualSnapshotAddress(input.pickupAddress),
+            deliveryAddress: manualSnapshotAddress(input.deliveryAddress),
+            pickupSlot: {
+              date: input.pickupSlot.date,
+              window: input.pickupSlot.window,
+              label: input.pickupSlot.window,
+              areaId: pricingAreaId,
+            },
+            deliverySlot: {
+              date: input.deliverySlot.date,
+              window: input.deliverySlot.window,
+              label: input.deliverySlot.window,
+              areaId: deliveryResolved.area!._id,
+              estimated: false,
+            },
+            isExpress: input.isExpress,
+            paymentMethod: 'cod',
+            paymentStatus: 'pending',
+            customerNote: input.customerNote,
+            statusHistory: [
+              {
+                status: 'PLACED',
+                changedBy: new Types.ObjectId(actorUserId),
+                changedByRole: 'staff',
+                note: 'Created by staff (phone/WhatsApp order)',
+                at: now,
+              },
+            ],
+            internalNotes: [],
+            source: 'admin',
+          },
+        ],
+        { session },
+      );
+      if (!order) throw new Error('Order.create returned no document.');
+      createdOrder = order.toObject();
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  notifyOrderStatusChange(createdOrder!, 'PLACED').catch((err: unknown) =>
+    logger.error({ err, orderNumber: createdOrder!.orderNumber }, 'notifyOrderStatusChange failed'),
+  );
+
+  return createdOrder!;
 }

@@ -16,3 +16,5 @@ export * from './schemas/agent.js';
 export * from './schemas/notifications.js';
 export * from './schemas/users.js';
 export * from './schemas/reviews.js';
+export * from './schemas/dashboard.js';
+export * from './schemas/staff.js';

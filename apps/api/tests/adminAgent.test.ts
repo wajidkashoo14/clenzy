@@ -227,9 +227,37 @@ describe('admin order list and detail', () => {
       .get(`/api/v1/admin/orders/${String(orderDoc!._id)}`)
       .set('Cookie', staff.cookie);
     expect(detail.status).toBe(200);
-    expect(bodyOf<{ order: { orderNumber: string } }>(detail).data!.order.orderNumber).toBe(
-      order.orderNumber,
-    );
+    const detailOrder = bodyOf<{ order: { orderNumber: string; availableTransitions: string[] } }>(
+      detail,
+    ).data!.order;
+    expect(detailOrder.orderNumber).toBe(order.orderNumber);
+    // A freshly-placed COD order is PLACED — staff can confirm or cancel it, nothing else.
+    expect(detailOrder.availableTransitions.sort()).toEqual(['CANCELLED', 'CONFIRMED']);
+  });
+
+  it('normalizes a superadmin actor to admin when computing available transitions', async () => {
+    const superadmin = await createUserWithRole('superadmin');
+    const { order } = await placeCodOrder();
+    const orderDoc = await Order.findOne({ orderNumber: order.orderNumber });
+    await changeStatus(orderDoc!, 'CONFIRMED', 'staff');
+    await changeStatus(orderDoc!, 'PICKUP_SCHEDULED', 'staff');
+    await changeStatus(orderDoc!, 'PICKED_UP', 'staff');
+    await changeStatus(orderDoc!, 'PROCESSING', 'staff');
+    await changeStatus(orderDoc!, 'QUALITY_CHECK', 'staff');
+    await changeStatus(orderDoc!, 'READY', 'staff');
+    await changeStatus(orderDoc!, 'OUT_FOR_DELIVERY', 'staff');
+    await changeStatus(orderDoc!, 'DELIVERED', 'staff');
+
+    const response = await request(app)
+      .get(`/api/v1/admin/orders/${String(orderDoc!._id)}`)
+      .set('Cookie', superadmin.cookie);
+    expect(response.status).toBe(200);
+    // DELIVERED → COMPLETED/REFUND_PENDING/CANCELLED are all 'admin'-only moves in the transition map.
+    expect(
+      bodyOf<{ order: { availableTransitions: string[] } }>(
+        response,
+      ).data!.order.availableTransitions.sort(),
+    ).toEqual(['CANCELLED', 'COMPLETED', 'REFUND_PENDING']);
   });
 
   it('filters the roster by date and type', async () => {
@@ -245,6 +273,126 @@ describe('admin order list and detail', () => {
     expect(response.status).toBe(200);
     const roster = bodyOf<{ orders: { orderNumber: string }[] }>(response).data!.orders;
     expect(roster.some((o) => o.orderNumber === order.orderNumber)).toBe(true);
+  });
+
+  it('filters by a comma-separated multi-select status', async () => {
+    const staff = await createUserWithRole('staff');
+    const { order } = await placeCodOrder();
+
+    const matching = await request(app)
+      .get('/api/v1/admin/orders?status=PLACED,CONFIRMED')
+      .set('Cookie', staff.cookie);
+    expect(matching.status).toBe(200);
+    expect(
+      bodyOf<{ orders: { orderNumber: string }[] }>(matching).data!.orders.some(
+        (o) => o.orderNumber === order.orderNumber,
+      ),
+    ).toBe(true);
+
+    const nonMatching = await request(app)
+      .get('/api/v1/admin/orders?status=DELIVERED,CANCELLED')
+      .set('Cookie', staff.cookie);
+    expect(
+      bodyOf<{ orders: { orderNumber: string }[] }>(nonMatching).data!.orders.some(
+        (o) => o.orderNumber === order.orderNumber,
+      ),
+    ).toBe(false);
+  });
+
+  it('the needsAttention filter surfaces a pickup scheduled today with no assigned agent', async () => {
+    const staff = await createUserWithRole('staff');
+    const { order } = await placeCodOrder();
+    const orderDoc = await Order.findOne({ orderNumber: order.orderNumber });
+    const admin = await createUserWithRole('admin');
+    await changeStatus(orderDoc!, 'CONFIRMED', 'admin', { actorUserId: admin.id });
+    // Force the pickup slot's date to today so it lands in "today's unassigned pickups".
+    await Order.updateOne(
+      { _id: orderDoc!._id },
+      { $set: { 'pickupSlot.date': nowInKolkata().dateString } },
+      { timestamps: false },
+    );
+
+    const response = await request(app)
+      .get('/api/v1/admin/orders?needsAttention=true')
+      .set('Cookie', staff.cookie);
+    expect(response.status).toBe(200);
+    expect(
+      bodyOf<{ orders: { orderNumber: string }[] }>(response).data!.orders.some(
+        (o) => o.orderNumber === order.orderNumber,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('GET /admin/agents', () => {
+  it('lists only active agents, sorted by name', async () => {
+    const staff = await createUserWithRole('staff');
+    const agent = await createUserWithRole('agent');
+    await User.create({
+      phone: '+919600009999',
+      phoneVerified: true,
+      role: 'agent',
+      name: 'Suspended Agent',
+      status: 'suspended',
+    });
+
+    const response = await request(app).get('/api/v1/admin/agents').set('Cookie', staff.cookie);
+    expect(response.status).toBe(200);
+    const agents = bodyOf<{ agents: { id: string; name?: string; phone: string }[] }>(response)
+      .data!.agents;
+    expect(agents.some((a) => a.id === agent.id)).toBe(true);
+    expect(agents.some((a) => a.name === 'Suspended Agent')).toBe(false);
+  });
+
+  it('rejects a customer token with 403', async () => {
+    const customer = await createUserWithRole('customer');
+    const response = await request(app).get('/api/v1/admin/agents').set('Cookie', customer.cookie);
+    expect(response.status).toBe(403);
+  });
+});
+
+describe('POST /admin/orders/roster/assign (bulk assign)', () => {
+  it('assigns an agent to every order in the given roster window and auto-advances confirmed pickups', async () => {
+    const staff = await createUserWithRole('staff');
+    const agent = await createUserWithRole('agent');
+    const first = await placeCodOrder();
+    const firstDoc = await Order.findOne({ orderNumber: first.order.orderNumber });
+    await changeStatus(firstDoc!, 'CONFIRMED', 'staff');
+
+    const response = await request(app)
+      .post('/api/v1/admin/orders/roster/assign')
+      .set('Cookie', staff.cookie)
+      .send({
+        date: first.pickupDate,
+        type: 'pickup',
+        window: first.pickupWindow,
+        agentId: agent.id,
+      });
+
+    expect(response.status).toBe(200);
+    const orders = bodyOf<{ orders: { orderNumber: string; status: string }[] }>(response).data!
+      .orders;
+    expect(
+      orders.some(
+        (o) => o.orderNumber === first.order.orderNumber && o.status === 'PICKUP_SCHEDULED',
+      ),
+    ).toBe(true);
+    const updatedDoc = await Order.findOne({ orderNumber: first.order.orderNumber }).lean();
+    expect(String(updatedDoc?.assignedPickupAgentId)).toBe(agent.id);
+  });
+
+  it('rejects a customer token with 403', async () => {
+    const customer = await createUserWithRole('customer');
+    const response = await request(app)
+      .post('/api/v1/admin/orders/roster/assign')
+      .set('Cookie', customer.cookie)
+      .send({
+        date: '2026-01-01',
+        type: 'pickup',
+        window: '09:00-11:00',
+        agentId: '000000000000000000000000',
+      });
+    expect(response.status).toBe(403);
   });
 });
 

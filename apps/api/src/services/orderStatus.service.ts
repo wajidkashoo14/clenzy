@@ -105,6 +105,17 @@ export function assertTransitionAllowed(
   }
 }
 
+/**
+ * The admin UI must only offer transitions this map allows for the current
+ * role — see docs/ADMIN_DASHBOARD.md §3 "Status transitions". Exposed so
+ * `getOrderAdmin()` can hand the frontend the exact legal move list rather
+ * than the frontend keeping its own (driftable) copy of this table.
+ */
+export function getAvailableTransitions(from: OrderStatus, actor: TransitionActor): OrderStatus[] {
+  const effectiveActor = actor === 'superadmin' ? 'admin' : actor;
+  return TRANSITIONS[from].filter((r) => r.actors.includes(effectiveActor)).map((r) => r.to);
+}
+
 export interface ChangeStatusOptions {
   actorUserId?: string;
   note?: string;

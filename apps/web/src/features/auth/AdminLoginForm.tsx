@@ -1,6 +1,6 @@
 'use client';
 
-import { loginInputSchema, type LoginInput } from '@clenzy/shared';
+import { hasRole, loginInputSchema, type LoginInput } from '@clenzy/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -28,10 +28,8 @@ export function AdminLoginForm(): ReactNode {
     try {
       const { user } = await loginWithPassword(data.email, data.password);
       setUser(user);
-      // No admin dashboard exists yet (a later phase) — fall back to home
-      // rather than `/admin`, which would 404. Agents land on their task
-      // view, which does exist. Update the admin fallback once it lands.
-      const fallback = user.role === 'agent' ? '/agent/tasks' : '/';
+      const fallback =
+        user.role === 'agent' ? '/agent/tasks' : hasRole(user.role, 'staff') ? '/admin' : '/';
       router.push(searchParams.get('redirect') || fallback);
     } catch (error) {
       const message = applyApiErrorToForm(error, setError);

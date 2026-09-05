@@ -111,7 +111,7 @@ function toOrderPayload(order: OrderLean): OrderPayload {
 }
 
 /** `CLZ-YYMMDD-NNNN`, atomically sequenced per day via `Counter`. */
-async function nextOrderNumber(session: mongoose.ClientSession): Promise<string> {
+export async function nextOrderNumber(session: mongoose.ClientSession): Promise<string> {
   const { dateString } = nowInKolkata();
   const yymmdd = dateString.slice(2).replace(/-/g, '');
   const counterId = `orderNumber:${yymmdd}`;
@@ -195,6 +195,115 @@ export async function releaseSlot(
   );
 }
 
+interface PricedItemsResult {
+  orderItems: OrderItemSnapshot[];
+  itemsSubtotal: number;
+  expressSurcharge: number;
+  taxAmount: number;
+  maxTurnaroundHours: number;
+}
+
+/**
+ * Re-prices a set of requested lines against the live catalog — the shared
+ * core of both `placeOrder` (customer checkout) and `adminOrders.service.ts`'s
+ * `createManualOrder` (staff phone/WhatsApp intake). Extracted rather than
+ * duplicated so tiered pricing, express pricing, and area-availability rules
+ * only ever live in one place. See docs/API_SPEC.md §7.
+ */
+export async function priceOrderItems(
+  items: { serviceItemId: string; quantity: number }[],
+  areaId: string,
+  isExpress: boolean,
+  session: mongoose.ClientSession,
+  addedBy: 'customer' | 'admin' = 'customer',
+): Promise<PricedItemsResult> {
+  const itemIds = items.map((line) => line.serviceItemId);
+  const dbItems = await ServiceItem.find({ _id: { $in: itemIds }, isActive: true })
+    .session(session)
+    .lean();
+  const dbItemsById = new Map(dbItems.map((item) => [String(item._id), item]));
+
+  const categoryIds = [...new Set(dbItems.map((item) => String(item.categoryId)))];
+  const categories = await ServiceCategory.find({ _id: { $in: categoryIds } })
+    .session(session)
+    .lean();
+  const categoryById = new Map(categories.map((category) => [String(category._id), category]));
+
+  const orderItems: OrderItemSnapshot[] = [];
+  let itemsSubtotal = 0;
+  let expressSurchargeBase = 0;
+  let taxAmount = 0;
+  let maxTurnaroundHours = 48;
+
+  for (const requested of items) {
+    const dbItem = dbItemsById.get(requested.serviceItemId);
+    if (!dbItem) {
+      const existsButInactive = await ServiceItem.exists({ _id: requested.serviceItemId }).session(
+        session,
+      );
+      if (existsButInactive) {
+        throw AppError.unprocessable(
+          'ITEM_INACTIVE',
+          'One of the items in this order is no longer available.',
+        );
+      }
+      throw AppError.notFound('One of the items in this order was not found.');
+    }
+    if (
+      dbItem.availableInAreas.length > 0 &&
+      !dbItem.availableInAreas.some((id) => String(id) === areaId)
+    ) {
+      throw AppError.unprocessable(
+        'ITEM_NOT_AVAILABLE_IN_AREA',
+        `${dbItem.name} isn't available for delivery in this area.`,
+      );
+    }
+
+    const clampedQuantity = Math.min(
+      dbItem.maxQuantity,
+      Math.max(dbItem.minQuantity, requested.quantity),
+    );
+    const usesPerItemExpressPrice = Boolean(isExpress && dbItem.expressPrice != null);
+    const unitPrice = usesPerItemExpressPrice
+      ? dbItem.expressPrice!
+      : resolveTieredPrice(dbItem, clampedQuantity);
+    const lineTotal = unitPrice * clampedQuantity;
+    const category = categoryById.get(String(dbItem.categoryId));
+
+    orderItems.push({
+      serviceItemId: dbItem._id,
+      categoryId: dbItem.categoryId,
+      name: dbItem.name,
+      categoryName: category?.name ?? '',
+      unit: dbItem.unit,
+      unitPrice,
+      quantity: clampedQuantity,
+      taxRatePercent: dbItem.taxRatePercent,
+      lineTotal,
+      careNote: dbItem.careNote,
+      addedBy,
+      isAdjusted: clampedQuantity !== requested.quantity,
+    });
+
+    itemsSubtotal += lineTotal;
+    taxAmount += Math.round((lineTotal * dbItem.taxRatePercent) / 100);
+    if (isExpress && !usesPerItemExpressPrice) expressSurchargeBase += lineTotal;
+
+    const itemTurnaround = dbItem.turnaroundHours ?? category?.turnaroundHours ?? 48;
+    maxTurnaroundHours = Math.max(maxTurnaroundHours, itemTurnaround);
+  }
+
+  const expressSurcharge =
+    isExpress && expressSurchargeBase > 0
+      ? Math.max(
+          Math.round(expressSurchargeBase * PRICING_DEFAULTS.expressSurchargeRate),
+          PRICING_DEFAULTS.minExpressSurchargePaise,
+        )
+      : 0;
+
+  return { orderItems, itemsSubtotal, expressSurcharge, taxAmount, maxTurnaroundHours };
+}
+
 /**
  * The core order-placement flow — see docs/API_SPEC.md §7. Everything from
  * re-pricing through payment-record creation runs inside one transaction:
@@ -246,89 +355,14 @@ export async function placeOrder(
       // Single areaId drives pricing/availability, mirroring `POST /cart/estimate`'s one-areaId contract.
       const pricingAreaId = String(pickupAddress.serviceAreaId);
 
-      const dbItems = await ServiceItem.find({ _id: { $in: itemIds }, isActive: true })
-        .session(session)
-        .lean();
-      const dbItemsById = new Map(dbItems.map((item) => [String(item._id), item]));
-
-      const categoryIds = [...new Set(dbItems.map((item) => String(item.categoryId)))];
-      const categories = await ServiceCategory.find({ _id: { $in: categoryIds } })
-        .session(session)
-        .lean();
-      const categoryById = new Map(categories.map((category) => [String(category._id), category]));
-
-      const orderItems: OrderItemSnapshot[] = [];
-      let itemsSubtotal = 0;
-      let expressSurchargeBase = 0;
-      let taxAmount = 0;
-      // Fallback turnaround if no item/category specifies one; raised per-item below.
-      let maxTurnaroundHours = 48;
-
-      for (const requested of input.items) {
-        const dbItem = dbItemsById.get(requested.serviceItemId);
-        if (!dbItem) {
-          const existsButInactive = await ServiceItem.exists({
-            _id: requested.serviceItemId,
-          }).session(session);
-          if (existsButInactive) {
-            throw AppError.unprocessable(
-              'ITEM_INACTIVE',
-              'One of the items in your cart is no longer available.',
-            );
-          }
-          throw AppError.notFound('One of the items in your cart was not found.');
-        }
-        if (
-          dbItem.availableInAreas.length > 0 &&
-          !dbItem.availableInAreas.some((areaId) => String(areaId) === pricingAreaId)
-        ) {
-          throw AppError.unprocessable(
-            'ITEM_NOT_AVAILABLE_IN_AREA',
-            `${dbItem.name} isn't available for delivery in your area.`,
-          );
-        }
-
-        const clampedQuantity = Math.min(
-          dbItem.maxQuantity,
-          Math.max(dbItem.minQuantity, requested.quantity),
+      const { orderItems, itemsSubtotal, expressSurcharge, taxAmount, maxTurnaroundHours } =
+        await priceOrderItems(
+          input.items,
+          pricingAreaId,
+          Boolean(input.isExpress),
+          session,
+          'customer',
         );
-        const usesPerItemExpressPrice = Boolean(input.isExpress && dbItem.expressPrice != null);
-        const unitPrice = usesPerItemExpressPrice
-          ? dbItem.expressPrice!
-          : resolveTieredPrice(dbItem, clampedQuantity);
-        const lineTotal = unitPrice * clampedQuantity;
-        const category = categoryById.get(String(dbItem.categoryId));
-
-        orderItems.push({
-          serviceItemId: dbItem._id,
-          categoryId: dbItem.categoryId,
-          name: dbItem.name,
-          categoryName: category?.name ?? '',
-          unit: dbItem.unit,
-          unitPrice,
-          quantity: clampedQuantity,
-          taxRatePercent: dbItem.taxRatePercent,
-          lineTotal,
-          careNote: dbItem.careNote,
-          addedBy: 'customer',
-          isAdjusted: clampedQuantity !== requested.quantity,
-        });
-
-        itemsSubtotal += lineTotal;
-        taxAmount += Math.round((lineTotal * dbItem.taxRatePercent) / 100);
-        if (input.isExpress && !usesPerItemExpressPrice) expressSurchargeBase += lineTotal;
-
-        const itemTurnaround = dbItem.turnaroundHours ?? category?.turnaroundHours ?? 48;
-        maxTurnaroundHours = Math.max(maxTurnaroundHours, itemTurnaround);
-      }
-
-      const expressSurcharge =
-        input.isExpress && expressSurchargeBase > 0
-          ? Math.max(
-              Math.round(expressSurchargeBase * PRICING_DEFAULTS.expressSurchargeRate),
-              PRICING_DEFAULTS.minExpressSurchargePaise,
-            )
-          : 0;
 
       const combinedSubtotal = itemsSubtotal + expressSurcharge;
       const deliveryFee =
@@ -346,6 +380,7 @@ export async function placeOrder(
       let discountAmount = 0;
       let couponDoc: Awaited<ReturnType<typeof validateCouponCore>>['coupon'] | undefined;
       if (input.couponCode) {
+        const categoryIds = [...new Set(orderItems.map((item) => String(item.categoryId)))];
         const outcome = await validateCouponCore({
           code: input.couponCode,
           userId,

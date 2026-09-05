@@ -3,6 +3,9 @@ import {
   adminCancelOrderInputSchema,
   adminOrderListQuerySchema,
   assignAgentInputSchema,
+  bulkAssignRosterInputSchema,
+  createManualOrderInputSchema,
+  dashboardQuerySchema,
   notificationSettingsInputSchema,
   orderRosterQuerySchema,
   refundInputSchema,
@@ -13,8 +16,10 @@ import {
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import * as adminOrdersService from '../services/adminOrders.service.js';
+import * as dashboardService from '../services/dashboard.service.js';
 import * as notificationSettingsService from '../services/notifications/notificationSettings.service.js';
 import * as paymentsService from '../services/payments.service.js';
+import * as staffService from '../services/staff.service.js';
 import { AppError } from '../utils/AppError.js';
 
 function requireParam(value: unknown, name: string): string {
@@ -38,8 +43,17 @@ export const listOrders = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json({ success: true, data: result });
 });
 
+export const createOrder = asyncHandler(async (req: Request, res: Response) => {
+  const input = createManualOrderInputSchema.parse(req.body);
+  const order = await adminOrdersService.createManualOrder(req.user!.id, input);
+  res.status(201).json({ success: true, data: { order } });
+});
+
 export const getOrder = asyncHandler(async (req: Request, res: Response) => {
-  const order = await adminOrdersService.getOrderAdmin(requireParam(req.params.id, 'id'));
+  const order = await adminOrdersService.getOrderAdmin(
+    requireParam(req.params.id, 'id'),
+    req.user!.role,
+  );
   res.status(200).json({ success: true, data: { order } });
 });
 
@@ -109,6 +123,23 @@ export const roster = asyncHandler(async (req: Request, res: Response) => {
   const query = orderRosterQuerySchema.parse(req.query);
   const orders = await adminOrdersService.getOrderRoster(query);
   res.status(200).json({ success: true, data: { orders } });
+});
+
+export const bulkAssignRoster = asyncHandler(async (req: Request, res: Response) => {
+  const input = bulkAssignRosterInputSchema.parse(req.body);
+  const orders = await adminOrdersService.bulkAssignRosterWindow(req.user!.id, input);
+  res.status(200).json({ success: true, data: { orders } });
+});
+
+export const listAgents = asyncHandler(async (_req: Request, res: Response) => {
+  const agents = await staffService.listAgents();
+  res.status(200).json({ success: true, data: { agents } });
+});
+
+export const getDashboard = asyncHandler(async (req: Request, res: Response) => {
+  const query = dashboardQuerySchema.parse(req.query);
+  const result = await dashboardService.getDashboard(query);
+  res.status(200).json({ success: true, data: result });
 });
 
 export const getNotificationSettings = asyncHandler(async (_req: Request, res: Response) => {
