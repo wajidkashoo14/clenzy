@@ -139,6 +139,8 @@ interface AddressListProps {
   onSelect: (id: string) => void;
   onEdit: (address: AddressPayload) => void;
   onDelete: (id: string) => Promise<void>;
+  /** Defaults to the checkout use case's label; pass a different one when reusing this list elsewhere. */
+  ariaLabel?: string;
 }
 
 /** Selectable radio-card list — see docs/DESIGN_SYSTEM.md §5 "Checkout components". */
@@ -148,9 +150,10 @@ export function AddressList({
   onSelect,
   onEdit,
   onDelete,
+  ariaLabel = 'Delivery address',
 }: AddressListProps): ReactNode {
   return (
-    <div role="radiogroup" aria-label="Delivery address" className="flex flex-col gap-3">
+    <div role="radiogroup" aria-label={ariaLabel} className="flex flex-col gap-3">
       {addresses.map((address) => (
         <AddressCard
           key={address.id}

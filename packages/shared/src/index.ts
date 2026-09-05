@@ -14,3 +14,5 @@ export * from './schemas/payments.js';
 export * from './schemas/adminOrders.js';
 export * from './schemas/agent.js';
 export * from './schemas/notifications.js';
+export * from './schemas/users.js';
+export * from './schemas/reviews.js';

@@ -25,6 +25,7 @@ import { notificationsRouter } from './routes/notifications.route.js';
 import { ordersRouter } from './routes/orders.route.js';
 import { paymentsRouter } from './routes/payments.route.js';
 import { slotsRouter } from './routes/slots.route.js';
+import { usersRouter } from './routes/users.route.js';
 import { webhooksRouter } from './routes/webhooks.route.js';
 
 export function createApp(): Express {
@@ -83,6 +84,7 @@ export function createApp(): Express {
   app.use('/api/v1/areas', areasRouter);
   app.use('/api/v1/cart', cartRouter);
   app.use('/api/v1/auth', authRouter);
+  app.use('/api/v1/users', usersRouter);
   app.use('/api/v1/addresses', addressesRouter);
   app.use('/api/v1/slots', slotsRouter);
   app.use('/api/v1/coupons', couponsRouter);

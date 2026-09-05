@@ -1,4 +1,6 @@
 import type {
+  OrderListQuery,
+  OrderListResult,
   OrderPayload,
   OrderStatus,
   OrderTrackResult,
@@ -7,7 +9,7 @@ import type {
   RescheduleOrderInput,
 } from '@clenzy/shared';
 import { ORDER_STATUS_LABELS } from '@clenzy/shared';
-import mongoose, { isValidObjectId, Types } from 'mongoose';
+import mongoose, { isValidObjectId, Types, type FilterQuery } from 'mongoose';
 import { logger } from '../config/logger.js';
 import { COD_MAX_ORDER_VALUE_PAISE, PRICING_DEFAULTS } from '../config/pricing.js';
 import { Address } from '../models/Address.js';
@@ -541,9 +543,29 @@ function isDuplicateKeyError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000;
 }
 
-export async function listOrders(userId: string): Promise<OrderPayload[]> {
-  const orders = await Order.find({ userId }).sort({ createdAt: -1 }).lean();
-  return orders.map(toOrderPayload);
+/** See docs/API_SPEC.md §7 — GET /orders. Own order history, filtered and paginated. */
+export async function listOrders(userId: string, query: OrderListQuery): Promise<OrderListResult> {
+  const filter: FilterQuery<OrderDocument> = { userId };
+  if (query.status) filter.status = query.status;
+  if (query.from || query.to) {
+    filter.createdAt = {
+      ...(query.from && { $gte: new Date(query.from) }),
+      ...(query.to && { $lte: new Date(query.to) }),
+    };
+  }
+
+  const skip = (query.page - 1) * query.pageSize;
+  const [orders, total] = await Promise.all([
+    Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(query.pageSize).lean(),
+    Order.countDocuments(filter),
+  ]);
+
+  return {
+    orders: orders.map(toOrderPayload),
+    total,
+    page: query.page,
+    pageSize: query.pageSize,
+  };
 }
 
 export async function getOrder(userId: string, orderNumber: string): Promise<OrderPayload> {

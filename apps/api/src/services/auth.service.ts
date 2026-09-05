@@ -33,13 +33,14 @@ interface TokenPair {
   refreshToken: string;
 }
 
-function toAuthUser(user: UserDocument & { _id: unknown }, isNewUser?: boolean): AuthUser {
+export function toAuthUser(user: UserDocument & { _id: unknown }, isNewUser?: boolean): AuthUser {
   return {
     id: String(user._id),
     name: user.name,
     phone: user.phone,
     email: user.email,
     role: user.role,
+    notificationPrefs: user.notificationPrefs,
     ...(isNewUser !== undefined && { isNewUser }),
   };
 }

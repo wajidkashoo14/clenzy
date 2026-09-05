@@ -1,11 +1,15 @@
 import {
   cancelOrderInputSchema,
+  orderListQuerySchema,
   placeOrderInputSchema,
   rescheduleOrderInputSchema,
+  submitReviewInputSchema,
 } from '@clenzy/shared';
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import * as ordersService from '../services/orders.service.js';
+import { generateInvoicePdf } from '../services/invoice.service.js';
+import { getReviewForOrder, submitReview } from '../services/reviews.service.js';
 import { AppError } from '../utils/AppError.js';
 
 function requireParam(value: unknown, name: string): string {
@@ -20,8 +24,9 @@ export const place = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const list = asyncHandler(async (req: Request, res: Response) => {
-  const orders = await ordersService.listOrders(req.user!.id);
-  res.status(200).json({ success: true, data: { orders } });
+  const query = orderListQuerySchema.parse(req.query);
+  const result = await ordersService.listOrders(req.user!.id, query);
+  res.status(200).json({ success: true, data: result });
 });
 
 export const get = asyncHandler(async (req: Request, res: Response) => {
@@ -74,4 +79,32 @@ export const approveRevision = asyncHandler(async (req: Request, res: Response) 
     requireParam(req.params.orderNumber, 'orderNumber'),
   );
   res.status(200).json({ success: true, data: { order } });
+});
+
+export const invoice = asyncHandler(async (req: Request, res: Response) => {
+  const orderNumber = requireParam(req.params.orderNumber, 'orderNumber');
+  const pdf = await generateInvoicePdf(req.user!.id, orderNumber);
+  res.status(200).set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="${orderNumber}-invoice.pdf"`,
+  });
+  res.send(pdf);
+});
+
+export const review = asyncHandler(async (req: Request, res: Response) => {
+  const input = submitReviewInputSchema.parse(req.body);
+  const result = await submitReview(
+    req.user!.id,
+    requireParam(req.params.orderNumber, 'orderNumber'),
+    input,
+  );
+  res.status(201).json({ success: true, data: { review: result } });
+});
+
+export const getReview = asyncHandler(async (req: Request, res: Response) => {
+  const result = await getReviewForOrder(
+    req.user!.id,
+    requireParam(req.params.orderNumber, 'orderNumber'),
+  );
+  res.status(200).json({ success: true, data: { review: result } });
 });

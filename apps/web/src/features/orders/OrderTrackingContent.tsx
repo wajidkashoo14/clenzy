@@ -1,7 +1,8 @@
 'use client';
 
-import type { OrderPayload, OrderStatus, OrderTrackResult } from '@clenzy/shared';
-import { Phone, Sparkles } from 'lucide-react';
+import type { OrderPayload, OrderStatus, OrderTrackResult, ReviewPayload } from '@clenzy/shared';
+import { Download, Phone, RotateCcw, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -11,13 +12,24 @@ import { Spinner } from '@/components/ui/Spinner';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { getOrder } from '@/features/checkout/api';
 import { CancelOrderModal } from '@/features/orders/CancelOrderModal';
-import { approveRevision, requestReclean, trackOrder } from '@/features/orders/api';
+import {
+  approveRevision,
+  downloadInvoice,
+  getReview,
+  requestReclean,
+  trackOrder,
+} from '@/features/orders/api';
 import { OrderTimeline } from '@/features/orders/OrderTimeline';
 import { RescheduleModal } from '@/features/orders/RescheduleModal';
+import { ReviewForm } from '@/features/orders/ReviewForm';
 import { ApiError } from '@/lib/api-client';
 import { formatRupees, formatSlotDate, formatSlotWindow } from '@/lib/format';
 import { ORDER_STATUS_META } from '@/lib/orderStatus';
 import { toast } from '@/lib/toast';
+import type { CartLine } from '@/stores/cartStore';
+import { useCartStore } from '@/stores/cartStore';
+
+const REVIEWABLE_STATUSES: OrderStatus[] = ['DELIVERED', 'COMPLETED'];
 
 const CUSTOMER_CANCELLABLE_STATUSES: OrderStatus[] = [
   'PENDING_PAYMENT',
@@ -40,13 +52,17 @@ const RECLEAN_WINDOW_HOURS = 72;
 const MAX_RESCHEDULES = 2;
 
 export function OrderTrackingContent({ orderNumber }: { orderNumber: string }): ReactNode {
+  const router = useRouter();
+  const addItem = useCartStore((state) => state.addItem);
   const [order, setOrder] = useState<OrderPayload | null>(null);
   const [track, setTrack] = useState<OrderTrackResult | null>(null);
+  const [review, setReview] = useState<ReviewPayload | null>(null);
   const [error, setError] = useState<string>();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isRequestingReclean, setIsRequestingReclean] = useState(false);
+  const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
   // Lazy initializer, not a bare `Date.now()` call in the render body — see
   // https://react.dev/reference/rules/components-and-hooks-must-be-pure. A
   // snapshot at mount is fine here: worst case the re-clean button stays
@@ -60,6 +76,15 @@ export function OrderTrackingContent({ orderNumber }: { orderNumber: string }): 
         if (cancelled) return;
         setOrder(orderResult.order);
         setTrack(trackResult);
+        if (REVIEWABLE_STATUSES.includes(orderResult.order.status as OrderStatus)) {
+          getReview(orderNumber)
+            .then((result) => {
+              if (!cancelled) setReview(result.review);
+            })
+            .catch(() => {
+              // Non-critical — the review prompt just won't show if this fails.
+            });
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -103,6 +128,34 @@ export function OrderTrackingContent({ orderNumber }: { orderNumber: string }): 
     } finally {
       setIsRequestingReclean(false);
     }
+  }
+
+  async function handleDownloadInvoice(): Promise<void> {
+    setIsDownloadingInvoice(true);
+    try {
+      await downloadInvoice(orderNumber);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Could not download the invoice.');
+    } finally {
+      setIsDownloadingInvoice(false);
+    }
+  }
+
+  function handleReorder(): void {
+    if (!order) return;
+    for (const item of order.items) {
+      addItem(
+        {
+          serviceItemId: item.serviceItemId,
+          name: item.name,
+          unit: item.unit as CartLine['unit'],
+          careNote: item.careNote,
+        },
+        item.quantity,
+      );
+    }
+    toast.success('Items added to cart');
+    router.push('/cart');
   }
 
   if (error) return <ErrorState title="Couldn't load this order" description={error} />;
@@ -225,6 +278,45 @@ export function OrderTrackingContent({ orderNumber }: { orderNumber: string }): 
           <span className="text-text tabular-nums">{formatRupees(order.pricing.grandTotal)}</span>
         </div>
       </Card>
+
+      <div className="flex flex-wrap gap-3">
+        <Button variant="secondary" size="sm" onClick={handleReorder}>
+          <RotateCcw className="size-4" aria-hidden="true" />
+          Re-order
+        </Button>
+        {status !== 'CANCELLED' && (
+          <Button
+            variant="secondary"
+            size="sm"
+            isLoading={isDownloadingInvoice}
+            onClick={() => void handleDownloadInvoice()}
+          >
+            <Download className="size-4" aria-hidden="true" />
+            Download invoice
+          </Button>
+        )}
+      </div>
+
+      {REVIEWABLE_STATUSES.includes(status) && (
+        <Card>
+          {review ? (
+            <p className="text-text-muted text-sm">
+              You rated this order {review.rating}/5. Thanks for the feedback!
+            </p>
+          ) : (
+            <ReviewForm
+              orderNumber={order.orderNumber}
+              onSubmitted={() => {
+                getReview(order.orderNumber)
+                  .then((result) => setReview(result.review))
+                  .catch(() => {
+                    // Non-critical — the form will just stay visible until the next load.
+                  });
+              }}
+            />
+          )}
+        </Card>
+      )}
 
       {(canCancel || allowedRescheduleTypes.length > 0 || canReclean) && (
         <div className="flex flex-wrap gap-3">

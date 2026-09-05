@@ -56,6 +56,14 @@ export const changePasswordInputSchema = z.object({
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordInputSchema>;
 
+const notificationPrefsSchema = z.object({
+  email: z.boolean(),
+  sms: z.boolean(),
+  whatsapp: z.boolean(),
+  push: z.boolean(),
+  marketing: z.boolean(),
+});
+
 /** Public-safe user shape — never includes passwordHash or tokens. */
 export const authUserSchema = z.object({
   id: z.string(),
@@ -63,6 +71,7 @@ export const authUserSchema = z.object({
   phone: z.string(),
   email: z.string().optional(),
   role: z.enum(ROLES),
+  notificationPrefs: notificationPrefsSchema,
   isNewUser: z.boolean().optional(),
 });
 export type AuthUser = z.infer<typeof authUserSchema>;

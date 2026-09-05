@@ -24,3 +24,6 @@ ordersRouter.post('/:orderNumber/cancel', ordersController.cancel);
 ordersRouter.post('/:orderNumber/reschedule', ordersController.reschedule);
 ordersRouter.post('/:orderNumber/reclean', ordersController.reclean);
 ordersRouter.post('/:orderNumber/approve-revision', ordersController.approveRevision);
+ordersRouter.get('/:orderNumber/invoice', ordersController.invoice);
+ordersRouter.get('/:orderNumber/review', ordersController.getReview);
+ordersRouter.post('/:orderNumber/review', ordersController.review);

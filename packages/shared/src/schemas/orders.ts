@@ -159,3 +159,21 @@ export const orderTrackResultSchema = z.object({
   agent: z.object({ name: z.string(), phone: z.string() }).nullable(),
 });
 export type OrderTrackResult = z.infer<typeof orderTrackResultSchema>;
+
+/** See docs/API_SPEC.md §7 — GET /orders (own order history, filtered and paginated). */
+export const orderListQuerySchema = z.object({
+  status: z.string().trim().optional(),
+  from: z.string().trim().optional(),
+  to: z.string().trim().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(50).default(10),
+});
+export type OrderListQuery = z.infer<typeof orderListQuerySchema>;
+
+export const orderListResultSchema = z.object({
+  orders: z.array(orderSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+export type OrderListResult = z.infer<typeof orderListResultSchema>;
