@@ -23,6 +23,7 @@ import { ServiceItem } from '../models/ServiceItem.js';
 import { SlotCapacity } from '../models/SlotCapacity.js';
 import { SlotTemplate } from '../models/SlotTemplate.js';
 import { User } from '../models/User.js';
+import { assertAreaAcceptingOrders } from './areas.service.js';
 import { resolveTieredPrice } from './cart.service.js';
 import { isSlotCutoffPassed } from './slots.service.js';
 import { validateCouponCore } from './coupons.service.js';
@@ -159,14 +160,18 @@ export async function reserveSlot(
     );
   }
 
-  await SlotCapacity.findOneAndUpdate(
+  const capacityDoc = await SlotCapacity.findOneAndUpdate(
     { date, window, type, areaId },
     { $setOnInsert: { capacity: template.capacity, booked: 0 } },
-    { upsert: true, session },
+    { upsert: true, new: true, session },
   );
 
+  // Guard against the SlotCapacity doc's own `capacity` (which an admin may
+  // have overridden for this specific date — docs/ADMIN_DASHBOARD.md §9),
+  // not the template's default — otherwise a capacity override would have
+  // no actual effect on booking.
   const reserved = await SlotCapacity.findOneAndUpdate(
-    { date, window, type, areaId, booked: { $lt: template.capacity } },
+    { date, window, type, areaId, booked: { $lt: capacityDoc.capacity } },
     { $inc: { booked: 1 } },
     { new: true, session },
   );
@@ -352,6 +357,10 @@ export async function placeOrder(
           'One of your addresses is outside our delivery area.',
         );
       }
+      await Promise.all([
+        assertAreaAcceptingOrders(String(pickupAddress.serviceAreaId), 'pickup', session),
+        assertAreaAcceptingOrders(String(deliveryAddress.serviceAreaId), 'delivery', session),
+      ]);
       // Single areaId drives pricing/availability, mirroring `POST /cart/estimate`'s one-areaId contract.
       const pricingAreaId = String(pickupAddress.serviceAreaId);
 

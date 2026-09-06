@@ -18,3 +18,8 @@ export * from './schemas/users.js';
 export * from './schemas/reviews.js';
 export * from './schemas/dashboard.js';
 export * from './schemas/staff.js';
+export * from './schemas/adminCatalog.js';
+export * from './schemas/adminCoupons.js';
+export * from './schemas/adminAreas.js';
+export * from './schemas/adminSlots.js';
+export * from './schemas/adminStaff.js';

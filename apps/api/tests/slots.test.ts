@@ -71,6 +71,47 @@ describe('GET /slots', () => {
     expect(window.disabledReason).toBe('Fully booked.');
   });
 
+  it('honors an admin capacity override over the template default', async () => {
+    const area = await ServiceArea.create({
+      city: 'Srinagar',
+      state: 'Jammu and Kashmir',
+      area: 'Dalgate',
+      slug: `dalgate-${Date.now()}`,
+      pincodes: ['190001'],
+      isActive: true,
+    });
+    const tomorrow = addDaysToDateString(nowInKolkata().dateString, 1);
+    await SlotTemplate.create({
+      type: 'pickup',
+      dayOfWeek: dayOfWeekOfDateString(tomorrow),
+      window: '09:00-11:00',
+      label: '9 AM – 11 AM',
+      capacity: 15,
+      cutoffMinutesBefore: 0,
+      isActive: true,
+      areaIds: [],
+    });
+    // Admin override for a holiday: only 1 slot instead of the template's 15.
+    await SlotCapacity.create({
+      date: tomorrow,
+      window: '09:00-11:00',
+      type: 'pickup',
+      areaId: area._id,
+      booked: 1,
+      capacity: 1,
+    });
+
+    const response = await request(app)
+      .get('/api/v1/slots')
+      .query({ type: 'pickup', areaId: String(area._id), from: tomorrow, days: 1 });
+
+    expect(response.status).toBe(200);
+    const window = bodyOf<SlotsResult>(response).data!.dates[0]!.windows[0]!;
+    expect(window.capacity).toBe(1);
+    expect(window.available).toBe(0);
+    expect(window.disabled).toBe(true);
+  });
+
   it('rejects an invalid areaId', async () => {
     const response = await request(app)
       .get('/api/v1/slots')

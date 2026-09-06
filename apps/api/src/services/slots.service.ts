@@ -54,7 +54,7 @@ export async function getSlotAvailability(query: SlotsQuery): Promise<{ dates: S
     areaId: query.areaId,
     date: { $gte: query.from, $lte: lastDate },
   }).lean();
-  const bookedByDateWindow = new Map(capacityDocs.map((c) => [`${c.date}|${c.window}`, c.booked]));
+  const capacityByDateWindow = new Map(capacityDocs.map((c) => [`${c.date}|${c.window}`, c]));
 
   const dates: SlotDay[] = [];
   for (let i = 0; i < query.days; i += 1) {
@@ -64,8 +64,13 @@ export async function getSlotAvailability(query: SlotsQuery): Promise<{ dates: S
     const windows: SlotWindow[] = templates
       .filter((template) => template.dayOfWeek === dayOfWeek)
       .map((template) => {
-        const booked = bookedByDateWindow.get(`${date}|${template.window}`) ?? 0;
-        const available = Math.max(0, template.capacity - booked);
+        // An admin-overridden `SlotCapacity.capacity` for this date takes
+        // priority over the template's default — see reserveSlot() in
+        // orders.service.ts, which guards bookings the same way.
+        const override = capacityByDateWindow.get(`${date}|${template.window}`);
+        const capacity = override?.capacity ?? template.capacity;
+        const booked = override?.booked ?? 0;
+        const available = Math.max(0, capacity - booked);
         const cutoffPassed = isSlotCutoffPassed(
           date,
           template.window,
@@ -76,7 +81,7 @@ export async function getSlotAvailability(query: SlotsQuery): Promise<{ dates: S
         return {
           window: template.window,
           label: template.label,
-          capacity: template.capacity,
+          capacity,
           booked,
           available,
           cutoffPassed,

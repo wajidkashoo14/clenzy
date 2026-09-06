@@ -24,6 +24,10 @@ const envSchema = z.object({
   // in emails/SMS (a relative path breaks once the recipient isn't already
   // on the site). See docs/PAYMENTS_AND_NOTIFICATIONS.md §3.3.
   WEB_APP_URL: z.string().default('http://localhost:3000'),
+  // Shared with apps/web's REVALIDATE_SECRET — must match exactly. Optional:
+  // unset means catalog/pricing admin mutations skip the ISR-busting webhook
+  // call and pages fall back to their normal revalidate-on-interval TTL.
+  REVALIDATE_SECRET: z.string().optional(),
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters.'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters.'),
   // Optional — see apps/api/src/integrations/msg91/index.ts. Unset means the

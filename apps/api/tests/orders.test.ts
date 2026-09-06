@@ -319,6 +319,21 @@ describe('POST /orders', () => {
     expect(bodyOf(response).error!.code).toBe('ADDRESS_NOT_SERVICEABLE');
   });
 
+  it('rejects placing an order in an area an admin has paused since the address was saved', async () => {
+    const { user, input, area } = await fullSetup();
+    // Simulates docs/ADMIN_DASHBOARD.md §8's "pause area" — the address was
+    // saved while the area was open; the area is paused afterward.
+    await ServiceArea.updateOne({ _id: area._id }, { $set: { pickupAvailable: false } });
+
+    const response = await request(app)
+      .post('/api/v1/orders')
+      .set('Cookie', user.cookie)
+      .send(input);
+
+    expect(response.status).toBe(422);
+    expect(bodyOf(response).error!.code).toBe('AREA_NOT_SERVICEABLE');
+  });
+
   it('rejects a slot that is already fully booked', async () => {
     const { user, input, area, pickupDate, pickupWindow } = await fullSetup();
     await SlotTemplate.updateMany(
@@ -332,6 +347,28 @@ describe('POST /orders', () => {
       areaId: area._id,
       booked: 1,
       capacity: 1,
+    });
+
+    const response = await request(app)
+      .post('/api/v1/orders')
+      .set('Cookie', user.cookie)
+      .send(input);
+
+    expect(response.status).toBe(409);
+    expect(bodyOf(response).error!.code).toBe('SLOT_UNAVAILABLE');
+  });
+
+  it('rejects a slot an admin has capacity-overridden to full, even though the template has room', async () => {
+    const { user, input, area, pickupDate, pickupWindow } = await fullSetup();
+    // Template still allows 15 — only the per-date SlotCapacity override (an
+    // admin blocking this date for a holiday) should govern the actual guard.
+    await SlotCapacity.create({
+      date: pickupDate,
+      window: pickupWindow,
+      type: 'pickup',
+      areaId: area._id,
+      booked: 0,
+      capacity: 0,
     });
 
     const response = await request(app)

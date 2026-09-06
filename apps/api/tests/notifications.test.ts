@@ -21,6 +21,25 @@ function bodyOf<T>(response: request.Response): ApiEnvelope<T> {
   return response.body as ApiEnvelope<T>;
 }
 
+/**
+ * Fire-and-forget dispatch (docs/PAYMENTS_AND_NOTIFICATIONS.md §3.3) means a
+ * caller going through the HTTP layer, unlike a direct `sendNotification()`
+ * call, can't `await` delivery — poll instead of a fixed sleep, which is
+ * inherently racy against however many channels dispatch sequentially.
+ */
+async function waitForNotifications(
+  filter: Record<string, unknown>,
+  expectedCount: number,
+  timeoutMs = 2000,
+) {
+  const start = Date.now();
+  for (;;) {
+    const rows = await Notification.find(filter).lean();
+    if (rows.length >= expectedCount || Date.now() - start > timeoutMs) return rows;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 let phoneSeed = 0;
 async function createUserWithRole(
   role: 'customer' | 'staff' | 'admin',
@@ -526,10 +545,7 @@ describe('end-to-end: real lifecycle events trigger real notifications', () => {
     const orderNumber = bodyOf<{ order: { orderNumber: string } }>(response).data!.order
       .orderNumber;
 
-    // changeStatus fires notifyOrderStatusChange fire-and-forget — give the microtask queue a tick.
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const rows = await Notification.find({ userId: user.id, type: 'order_placed' }).lean();
+    const rows = await waitForNotifications({ userId: user.id, type: 'order_placed' }, 3);
     expect(rows.map((r) => r.channel).sort()).toEqual(['email', 'in_app', 'sms']);
     const inApp = rows.find((r) => r.channel === 'in_app')!;
     expect((inApp.data as { orderNumber: string }).orderNumber).toBe(orderNumber);

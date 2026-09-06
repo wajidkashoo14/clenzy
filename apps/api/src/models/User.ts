@@ -1,6 +1,17 @@
 import type { Role } from '@clenzy/shared';
 import { ROLES } from '@clenzy/shared';
-import { Schema, model } from 'mongoose';
+import { Schema, model, type Types } from 'mongoose';
+
+/** See docs/DATABASE.md "staff — not a separate collection": agents are users with an embedded profile. */
+export interface StaffProfile {
+  employeeId?: string;
+  assignedAreas: Types.ObjectId[];
+  vehicleNumber?: string;
+  isAvailable: boolean;
+  shiftStart?: string;
+  shiftEnd?: string;
+  joinedAt?: Date;
+}
 
 /** See docs/DATABASE.md "users". */
 export interface UserDocument {
@@ -12,6 +23,8 @@ export interface UserDocument {
   name?: string;
   role: Role;
   status: 'active' | 'suspended' | 'deleted';
+  /** Only meaningful for `role: 'agent'`. */
+  staffProfile?: StaffProfile;
   notificationPrefs: {
     email: boolean;
     sms: boolean;
@@ -54,6 +67,15 @@ const userSchema = new Schema<UserDocument>(
     name: { type: String, trim: true, maxlength: 100 },
     role: { type: String, enum: ROLES, default: 'customer' },
     status: { type: String, enum: ['active', 'suspended', 'deleted'], default: 'active' },
+    staffProfile: {
+      employeeId: { type: String, trim: true },
+      assignedAreas: [{ type: Schema.Types.ObjectId, ref: 'ServiceArea' }],
+      vehicleNumber: { type: String, trim: true },
+      isAvailable: { type: Boolean, default: true },
+      shiftStart: { type: String },
+      shiftEnd: { type: String },
+      joinedAt: { type: Date },
+    },
     notificationPrefs: {
       email: { type: Boolean, default: true },
       sms: { type: Boolean, default: true },

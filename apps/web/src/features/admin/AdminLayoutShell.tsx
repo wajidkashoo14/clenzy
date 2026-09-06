@@ -3,12 +3,19 @@
 import { hasRole } from '@clenzy/shared';
 import {
   CalendarClock,
+  CalendarRange,
   ChevronLeft,
+  IndianRupee,
   LayoutDashboard,
+  ListChecks,
   LogOut,
+  MapPin,
   Menu,
   Package,
   Search,
+  Shirt,
+  Ticket,
+  Users,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -26,7 +33,30 @@ const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/orders', label: 'Orders', icon: Package },
   { href: '/admin/orders/roster', label: "Today's Roster", icon: CalendarClock },
+  { href: '/admin/services', label: 'Categories', icon: Shirt },
+  { href: '/admin/services/items', label: 'Items', icon: ListChecks },
+  { href: '/admin/pricing', label: 'Pricing', icon: IndianRupee },
+  { href: '/admin/coupons', label: 'Coupons', icon: Ticket },
+  { href: '/admin/areas', label: 'Service Areas', icon: MapPin },
+  { href: '/admin/slots', label: 'Slots', icon: CalendarRange },
+  { href: '/admin/staff', label: 'Staff', icon: Users },
 ];
+
+/**
+ * Several routes share a prefix with a sibling nav entry (`/admin/orders` vs
+ * `/admin/orders/roster`, `/admin/services` vs `/admin/services/items`), so
+ * a plain `startsWith` would light up both. Only the longest matching href
+ * — the most specific one — counts as active.
+ */
+function findActiveHref(pathname: string): string {
+  let best = '';
+  for (const item of NAV_ITEMS) {
+    const matches =
+      item.href === '/admin' ? pathname === item.href : pathname.startsWith(item.href);
+    if (matches && item.href.length > best.length) best = item.href;
+  }
+  return best;
+}
 
 function NavLinks({
   collapsed,
@@ -37,11 +67,11 @@ function NavLinks({
   pathname: string;
   onNavigate?: () => void;
 }): ReactNode {
+  const activeHref = findActiveHref(pathname);
   return (
     <nav className="flex flex-col gap-0.5 p-2">
       {NAV_ITEMS.map((item) => {
-        const isActive =
-          item.href === '/admin' ? pathname === item.href : pathname.startsWith(item.href);
+        const isActive = item.href === activeHref;
         const Icon = item.icon;
         return (
           <Link
