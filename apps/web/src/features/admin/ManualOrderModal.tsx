@@ -15,6 +15,7 @@ import { QuantityStepper } from '@/components/ui/QuantityStepper';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { createManualOrder } from '@/features/admin/api';
+import type { AdminOrder } from '@/features/admin/types';
 import { useSlotWindows } from '@/features/admin/useSlotWindows';
 import { ApiError } from '@/lib/api-client';
 import { getCategories } from '@/lib/catalog-api';
@@ -22,10 +23,18 @@ import { formatRupees } from '@/lib/format';
 import { toast } from '@/lib/toast';
 import { applyApiErrorToForm } from '@/lib/form-helpers';
 
+export interface ManualOrderPrefill {
+  customerName?: string;
+  customerPhone?: string;
+  customerNote?: string;
+}
+
 export interface ManualOrderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: () => void;
+  onCreated: (order: AdminOrder) => void;
+  /** Pre-fills the form — used by "convert to order" on the leads pipeline (docs/ADMIN_DASHBOARD.md §11). */
+  prefill?: ManualOrderPrefill;
 }
 
 const emptyAddress = {
@@ -39,10 +48,25 @@ const emptyAddress = {
   pincode: '',
 };
 
+function buildDefaults(prefill?: ManualOrderPrefill): CreateManualOrderInput {
+  return {
+    customerPhone: prefill?.customerPhone ?? '',
+    customerName: prefill?.customerName ?? '',
+    items: [{ serviceItemId: '', quantity: 1 }],
+    pickupAddress: emptyAddress,
+    deliveryAddress: emptyAddress,
+    pickupSlot: { date: '', window: '' },
+    deliverySlot: { date: '', window: '' },
+    isExpress: false,
+    customerNote: prefill?.customerNote ?? '',
+  };
+}
+
 export function ManualOrderModal({
   open,
   onOpenChange,
   onCreated,
+  prefill,
 }: ManualOrderModalProps): ReactNode {
   const [categories, setCategories] = useState<ServiceCategoryPayload[]>([]);
   const [sameAddress, setSameAddress] = useState(true);
@@ -57,17 +81,7 @@ export function ManualOrderModal({
     formState: { errors, isSubmitting },
   } = useForm<CreateManualOrderInput>({
     resolver: zodResolver(createManualOrderInputSchema),
-    defaultValues: {
-      customerPhone: '',
-      customerName: '',
-      items: [{ serviceItemId: '', quantity: 1 }],
-      pickupAddress: emptyAddress,
-      deliveryAddress: emptyAddress,
-      pickupSlot: { date: '', window: '' },
-      deliverySlot: { date: '', window: '' },
-      isExpress: false,
-      customerNote: '',
-    },
+    defaultValues: buildDefaults(prefill),
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
@@ -80,7 +94,11 @@ export function ManualOrderModal({
   }, [open]);
 
   useEffect(() => {
-    if (!open) reset();
+    if (open) reset(buildDefaults(prefill));
+    // Re-seed on open (with whatever prefill was passed this time) and reset
+    // to blank on close — `prefill` is deliberately excluded so an unrelated
+    // parent re-render mid-edit doesn't clobber what the admin has typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reset]);
 
   const pickupAddress = useWatch({ control, name: 'pickupAddress' });
@@ -111,7 +129,7 @@ export function ManualOrderModal({
     try {
       const { order } = await createManualOrder(data);
       toast.success(`Order ${order.orderNumber} created`);
-      onCreated();
+      onCreated(order);
       onOpenChange(false);
     } catch (error) {
       const message = applyApiErrorToForm(error, setError);

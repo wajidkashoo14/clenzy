@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, type Types } from 'mongoose';
 
 /** Fast-path "Book a pickup" form submissions — see docs/DATABASE.md "leads". */
 export interface LeadDocument {
@@ -13,9 +13,9 @@ export interface LeadDocument {
   message?: string;
   source: string;
   status: 'new' | 'contacted' | 'converted' | 'lost';
-  assignedTo?: Schema.Types.ObjectId;
-  convertedOrderId?: Schema.Types.ObjectId;
-  notes: { note: string; by?: Schema.Types.ObjectId; at: Date }[];
+  assignedTo?: Types.ObjectId;
+  convertedOrderId?: Types.ObjectId;
+  notes: { note: string; by?: Types.ObjectId; at: Date }[];
   createdAt: Date;
   updatedAt: Date;
 }

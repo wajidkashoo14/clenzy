@@ -12,8 +12,8 @@ const RANGE_MS: Record<DashboardQuery['range'], number> = {
   month: 30 * 24 * 60 * 60 * 1000,
 };
 
-/** Non-cancelled/refunded orders count toward "booked" revenue and volume. */
-const REVENUE_COUNTED_STATUSES = ORDER_STATUSES.filter((s) => s !== 'CANCELLED');
+/** Non-cancelled/refunded orders count toward "booked" revenue and volume. Reused by reports.service.ts. */
+export const REVENUE_COUNTED_STATUSES = ORDER_STATUSES.filter((s) => s !== 'CANCELLED');
 
 async function computeNeedsAttention(): Promise<NeedsAttentionItem[]> {
   const now = Date.now();

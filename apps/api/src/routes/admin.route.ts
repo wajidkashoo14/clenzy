@@ -1,23 +1,31 @@
 import { Router } from 'express';
+import * as adminAuditLogController from '../controllers/adminAuditLog.controller.js';
 import * as adminCatalogController from '../controllers/adminCatalog.controller.js';
 import * as adminController from '../controllers/admin.controller.js';
 import * as adminAreasController from '../controllers/adminAreas.controller.js';
+import * as adminContentController from '../controllers/adminContent.controller.js';
 import * as adminCouponsController from '../controllers/adminCoupons.controller.js';
+import * as adminLeadsController from '../controllers/adminLeads.controller.js';
+import * as adminReportsController from '../controllers/adminReports.controller.js';
+import * as adminReviewsController from '../controllers/adminReviews.controller.js';
+import * as adminSettingsController from '../controllers/adminSettings.controller.js';
 import * as adminSlotsController from '../controllers/adminSlots.controller.js';
 import * as adminStaffController from '../controllers/adminStaff.controller.js';
 import { requireAuth, requireRole } from '../middlewares/auth.js';
 
 /**
  * See docs/API_SPEC.md §10 and docs/ADMIN_DASHBOARD.md. Phase 12a covered
- * dashboard + order operations; Phase 12b adds catalog/pricing/coupons/
- * areas/slots/staff. Content/reports (Phase 12c) remain a later phase.
+ * dashboard + order operations; Phase 12b added catalog/pricing/coupons/
+ * areas/slots/staff; Phase 12c (below) adds reviews/leads/content/
+ * settings/reports/audit-logs.
  *
  * Role bar: API_SPEC.md §10's header is "ADMIN unless noted" — the STAFF+
  * baseline below is the "Orders (STAFF+)" exception from 12a. Everything
- * added in 12b keeps reads at that same STAFF+ baseline (staff need to see
- * the catalog/pricing/coupons to help customers) but gates mutations to
+ * added in 12b/12c keeps reads at that same STAFF+ baseline (staff need to
+ * see this data to help customers) but gates mutations to
  * `requireRole('admin')`, matching the spec's default for money-adjacent
- * actions.
+ * actions. Settings and audit logs are the exceptions — see their sections
+ * below for the stricter bar the spec calls for.
  */
 export const adminRouter = Router();
 
@@ -131,3 +139,91 @@ adminRouter.patch(
   requireRole('superadmin'),
   adminStaffController.changeUserRole,
 );
+
+// --- Reviews ---------------------------------------------------------------
+adminRouter.get('/reviews', adminReviewsController.listReviews);
+adminRouter.patch('/reviews/:id', requireAdmin, adminReviewsController.moderateReview);
+
+// --- Leads -------------------------------------------------------------------
+adminRouter.get('/leads', adminLeadsController.listLeads);
+adminRouter.patch('/leads/:id', requireAdmin, adminLeadsController.updateLead);
+adminRouter.post('/leads/:id/notes', requireAdmin, adminLeadsController.addLeadNote);
+adminRouter.post('/leads/:id/convert', requireAdmin, adminLeadsController.convertLead);
+
+// --- Contact submissions & B2B enquiries — "equivalent, simpler queues" ----
+adminRouter.get('/contact-submissions', adminLeadsController.listContactSubmissions);
+adminRouter.patch(
+  '/contact-submissions/:id',
+  requireAdmin,
+  adminLeadsController.updateContactSubmissionStatus,
+);
+adminRouter.post(
+  '/contact-submissions/:id/notes',
+  requireAdmin,
+  adminLeadsController.addContactSubmissionNote,
+);
+adminRouter.get('/b2b-enquiries', adminLeadsController.listB2bEnquiries);
+adminRouter.patch('/b2b-enquiries/:id', requireAdmin, adminLeadsController.updateB2bEnquiryStatus);
+adminRouter.post('/b2b-enquiries/:id/notes', requireAdmin, adminLeadsController.addB2bEnquiryNote);
+
+// --- Content (FAQs, testimonials, banners) — built in, not a headless CMS,
+// per docs/ADMIN_DASHBOARD.md §12. ------------------------------------------
+adminRouter.get('/content/faqs', adminContentController.listFaqs);
+adminRouter.post('/content/faqs', requireAdmin, adminContentController.createFaq);
+adminRouter.post('/content/faqs/reorder', requireAdmin, adminContentController.reorderFaqs);
+adminRouter.patch('/content/faqs/:id', requireAdmin, adminContentController.updateFaq);
+adminRouter.delete('/content/faqs/:id', requireAdmin, adminContentController.deactivateFaq);
+
+adminRouter.get('/content/testimonials', adminContentController.listTestimonials);
+adminRouter.post('/content/testimonials', requireAdmin, adminContentController.createTestimonial);
+adminRouter.patch(
+  '/content/testimonials/:id',
+  requireAdmin,
+  adminContentController.updateTestimonial,
+);
+adminRouter.delete(
+  '/content/testimonials/:id',
+  requireAdmin,
+  adminContentController.deactivateTestimonial,
+);
+
+adminRouter.get('/content/banners', adminContentController.listBanners);
+adminRouter.post('/content/banners', requireAdmin, adminContentController.createBanner);
+adminRouter.patch('/content/banners/:id', requireAdmin, adminContentController.updateBanner);
+adminRouter.delete('/content/banners/:id', requireAdmin, adminContentController.deactivateBanner);
+
+// --- Settings — ADMIN for both read and write per docs/API_SPEC.md §10's
+// explicit bold callout (stricter than this router's STAFF+ baseline). ------
+adminRouter.get('/settings', requireAdmin, adminSettingsController.getSettingsHandler);
+adminRouter.patch('/settings', requireAdmin, adminSettingsController.updateSettingsHandler);
+
+// --- Reports -----------------------------------------------------------------
+adminRouter.get('/reports/revenue', requireAdmin, adminReportsController.getRevenueReport);
+adminRouter.get(
+  '/reports/revenue.csv',
+  requireAdmin,
+  adminReportsController.exportRevenueReportCsv,
+);
+adminRouter.get('/reports/orders', requireAdmin, adminReportsController.getOrdersReport);
+adminRouter.get('/reports/orders.csv', requireAdmin, adminReportsController.exportOrdersReportCsv);
+adminRouter.get('/reports/customers', requireAdmin, adminReportsController.getCustomersReport);
+adminRouter.get(
+  '/reports/customers.csv',
+  requireAdmin,
+  adminReportsController.exportCustomersReportCsv,
+);
+adminRouter.get('/reports/operations', requireAdmin, adminReportsController.getOperationsReport);
+adminRouter.get(
+  '/reports/operations.csv',
+  requireAdmin,
+  adminReportsController.exportOperationsReportCsv,
+);
+adminRouter.get('/reports/coupons', requireAdmin, adminReportsController.getCouponsReport);
+adminRouter.get(
+  '/reports/coupons.csv',
+  requireAdmin,
+  adminReportsController.exportCouponsReportCsv,
+);
+
+// --- Audit log viewer — SUPERADMIN only per docs/API_SPEC.md §10. -----------
+adminRouter.get('/audit-logs', requireRole('superadmin'), adminAuditLogController.getAuditLogs);

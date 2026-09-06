@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, type Types } from 'mongoose';
 
 /** Commercial/B2B enquiry submissions — see docs/DATABASE.md "b2bEnquiries". */
 export interface B2bEnquiryDocument {
@@ -10,7 +10,7 @@ export interface B2bEnquiryDocument {
   message?: string;
   source: string;
   status: 'new' | 'contacted' | 'converted' | 'lost';
-  notes: { note: string; by?: Schema.Types.ObjectId; at: Date }[];
+  notes: { note: string; by?: Types.ObjectId; at: Date }[];
   createdAt: Date;
   updatedAt: Date;
 }

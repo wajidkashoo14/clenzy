@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, type Types } from 'mongoose';
 
 /** General contact form submissions — see docs/DATABASE.md "contactSubmissions". */
 export interface ContactSubmissionDocument {
@@ -8,7 +8,7 @@ export interface ContactSubmissionDocument {
   message: string;
   source: string;
   status: 'new' | 'contacted' | 'converted' | 'lost';
-  notes: { note: string; by?: Schema.Types.ObjectId; at: Date }[];
+  notes: { note: string; by?: Types.ObjectId; at: Date }[];
   createdAt: Date;
   updatedAt: Date;
 }

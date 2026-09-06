@@ -58,3 +58,15 @@ export async function getReviewForOrder(
   const review = await Review.findOne({ orderId: order._id }).lean();
   return review ? toPayload(review) : null;
 }
+
+/** `GET /reviews?featured=true` per docs/API_SPEC.md §9 — public, approved reviews only. */
+export async function listPublicReviews(featuredOnly: boolean): Promise<ReviewPayload[]> {
+  const reviews = await Review.find({
+    status: 'approved',
+    ...(featuredOnly ? { isFeatured: true } : {}),
+  })
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .lean();
+  return reviews.map(toPayload);
+}

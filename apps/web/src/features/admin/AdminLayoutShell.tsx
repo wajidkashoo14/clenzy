@@ -1,11 +1,16 @@
 'use client';
 
+import type { Role } from '@clenzy/shared';
 import { hasRole } from '@clenzy/shared';
 import {
+  BarChart3,
   CalendarClock,
   CalendarRange,
   ChevronLeft,
+  FileText,
+  History,
   IndianRupee,
+  Inbox,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -13,7 +18,9 @@ import {
   Menu,
   Package,
   Search,
+  Settings as SettingsIcon,
   Shirt,
+  Star,
   Ticket,
   Users,
   X,
@@ -29,7 +36,7 @@ import { AuthSessionInit } from '@/features/auth/AuthSessionInit';
 import { cn } from '@/lib/cn';
 import { useAuthStore } from '@/stores/authStore';
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; minRole?: Role }[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/orders', label: 'Orders', icon: Package },
   { href: '/admin/orders/roster', label: "Today's Roster", icon: CalendarClock },
@@ -40,6 +47,12 @@ const NAV_ITEMS = [
   { href: '/admin/areas', label: 'Service Areas', icon: MapPin },
   { href: '/admin/slots', label: 'Slots', icon: CalendarRange },
   { href: '/admin/staff', label: 'Staff', icon: Users },
+  { href: '/admin/reviews', label: 'Reviews', icon: Star },
+  { href: '/admin/leads', label: 'Leads', icon: Inbox },
+  { href: '/admin/content', label: 'Content', icon: FileText },
+  { href: '/admin/reports', label: 'Reports', icon: BarChart3, minRole: 'admin' },
+  { href: '/admin/settings', label: 'Settings', icon: SettingsIcon, minRole: 'admin' },
+  { href: '/admin/audit-log', label: 'Audit Log', icon: History, minRole: 'superadmin' },
 ];
 
 /**
@@ -48,9 +61,9 @@ const NAV_ITEMS = [
  * a plain `startsWith` would light up both. Only the longest matching href
  * — the most specific one — counts as active.
  */
-function findActiveHref(pathname: string): string {
+function findActiveHref(pathname: string, items: typeof NAV_ITEMS): string {
   let best = '';
-  for (const item of NAV_ITEMS) {
+  for (const item of items) {
     const matches =
       item.href === '/admin' ? pathname === item.href : pathname.startsWith(item.href);
     if (matches && item.href.length > best.length) best = item.href;
@@ -61,16 +74,19 @@ function findActiveHref(pathname: string): string {
 function NavLinks({
   collapsed,
   pathname,
+  role,
   onNavigate,
 }: {
   collapsed: boolean;
   pathname: string;
+  role: Role;
   onNavigate?: () => void;
 }): ReactNode {
-  const activeHref = findActiveHref(pathname);
+  const items = NAV_ITEMS.filter((item) => hasRole(role, item.minRole ?? 'staff'));
+  const activeHref = findActiveHref(pathname, items);
   return (
     <nav className="flex flex-col gap-0.5 p-2">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const isActive = item.href === activeHref;
         const Icon = item.icon;
         return (
@@ -97,11 +113,13 @@ function NavLinks({
 }
 
 /**
- * Sidebar + top bar chrome for /admin, see docs/ADMIN_DASHBOARD.md §1. Only
- * Dashboard/Orders/Roster are wired up (Phase 12a) — the rest of the
- * documented sidebar (Customers, Catalog, Coupons, Areas, Slots, Staff,
- * Reviews, Leads, Content, Reports, Settings) is Phase 12b/12c, so it isn't
- * rendered here yet rather than linking to pages that don't exist.
+ * Sidebar + top bar chrome for /admin, see docs/ADMIN_DASHBOARD.md §1.
+ * Customer management (§4) isn't in any lettered Phase 12 task list
+ * (docs/DEVELOPMENT_PLAN.md's 12a/12b/12c breakdown never mentions it) and
+ * isn't built — everything else the plan calls for through 12c is.
+ * Sidebar items above `minRole: 'admin'`/`'superadmin'` are hidden from
+ * lower-privileged staff so the nav never links to a page that will just
+ * 403 on load.
  *
  * Sidebar is a fixed column on desktop (≥md) and a slide-in drawer on mobile
  * — docs/ADMIN_DASHBOARD.md §1 requires orders/roster to work on phones, so a
@@ -197,7 +215,7 @@ export function AdminLayoutShell({ children }: { children: ReactNode }) {
                 )}
               </button>
             </div>
-            <NavLinks collapsed={collapsed} pathname={pathname} />
+            <NavLinks collapsed={collapsed} pathname={pathname} role={user.role} />
           </aside>
 
           {/* Mobile drawer */}
@@ -228,6 +246,7 @@ export function AdminLayoutShell({ children }: { children: ReactNode }) {
                 <NavLinks
                   collapsed={false}
                   pathname={pathname}
+                  role={user.role}
                   onNavigate={() => setMobileNavOpen(false)}
                 />
               </aside>
