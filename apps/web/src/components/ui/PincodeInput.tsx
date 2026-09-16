@@ -70,9 +70,9 @@ export function PincodeInput({
           onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
           placeholder="e.g. 190001"
           className={cn(
-            'border-border-strong bg-surface-alt text-text h-11 w-full rounded-md border pr-10 pl-3.5 text-sm tabular-nums',
+            'border-border bg-surface text-text hover:border-border-strong h-11 w-full rounded-md border pr-10 pl-3.5 text-sm tabular-nums',
             'placeholder:text-text-muted',
-            'duration-fast ease-standard transition-[border-color,box-shadow]',
+            'duration-base transition-[border-color,box-shadow] ease-out',
             'focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none',
             'disabled:cursor-not-allowed disabled:opacity-45',
             status === 'error' && 'border-error focus-visible:border-error',

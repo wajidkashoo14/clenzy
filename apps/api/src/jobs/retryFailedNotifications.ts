@@ -53,6 +53,15 @@ export async function retryFailedNotifications(): Promise<{ retried: number; gav
           );
           continue;
         }
+        if (!user.phone) {
+          // Phone-less user (Google sign-up) — SMS can never deliver; fail
+          // permanently instead of retrying forever.
+          await Notification.updateOne(
+            { _id: notification._id },
+            { $set: { status: 'failed', error: 'NO_PHONE' } },
+          );
+          continue;
+        }
         const variables =
           (notification.data as { variables?: Record<string, string> } | undefined)?.variables ??
           {};

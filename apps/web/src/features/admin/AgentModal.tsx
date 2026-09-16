@@ -49,7 +49,7 @@ export function AgentModal({
       agent
         ? {
             name: agent.name ?? '',
-            phone: agent.phone,
+            phone: agent.phone ?? '',
             employeeId: agent.staffProfile?.employeeId,
             assignedAreas: agent.staffProfile?.assignedAreas ?? [],
             vehicleNumber: agent.staffProfile?.vehicleNumber,

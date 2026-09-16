@@ -1,4 +1,6 @@
 import { Star } from 'lucide-react';
+import { SectionHeading } from '@/components/marketing/SectionHeading';
+import { Stagger, StaggerItem } from '@/components/marketing/Stagger';
 import type { ReactNode } from 'react';
 
 /**
@@ -29,28 +31,33 @@ export function Testimonials(): ReactNode {
   return (
     <section className="border-border bg-surface-alt/50 border-y">
       <div className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <div className="max-w-xl">
-          <p className="text-primary text-sm font-semibold tracking-wide uppercase">
-            What to expect
-          </p>
-          <h2 className="font-heading text-text mt-2 text-3xl font-semibold">
-            Illustrative examples — real reviews coming soon
-          </h2>
-        </div>
+        <SectionHeading
+          eyebrow="What to expect"
+          title="Illustrative examples — real reviews coming soon"
+        />
 
-        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <Stagger className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
           {EXAMPLE_QUOTES.map((item) => (
-            <div key={item.quote} className="border-border bg-surface rounded-lg border p-5">
-              <div className="text-accent flex gap-0.5" aria-hidden="true">
-                {Array.from({ length: 5 }, (_, i) => (
-                  <Star key={i} className="size-3.5 fill-current" />
-                ))}
-              </div>
-              <p className="text-text mt-3 text-sm">“{item.quote}”</p>
-              <p className="text-text-muted mt-3 text-[13px]">{item.context}</p>
-            </div>
+            <StaggerItem key={item.quote} className="h-full">
+              <figure className="border-border bg-surface duration-base relative h-full rounded-xl border p-5 shadow-sm transition-[transform,box-shadow] ease-out hover:-translate-y-1 hover:shadow-lg">
+                {/* Decorative oversized quote mark */}
+                <span
+                  className="font-heading text-accent/25 absolute top-2 right-4 text-6xl leading-none select-none"
+                  aria-hidden="true"
+                >
+                  ”
+                </span>
+                <div className="text-accent flex gap-0.5" aria-hidden="true">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <Star key={i} className="size-3.5 fill-current" />
+                  ))}
+                </div>
+                <blockquote className="text-text mt-3 text-sm">“{item.quote}”</blockquote>
+                <figcaption className="text-text-muted mt-3 text-[13px]">{item.context}</figcaption>
+              </figure>
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
       </div>
     </section>
   );

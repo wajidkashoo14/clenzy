@@ -71,10 +71,16 @@ export function createApp(): Express {
 
   // Global rate limit — per-route limits (auth, orders, etc.) are added as
   // those features land. See docs/API_SPEC.md §11.
+  //
+  // The dev limit is far higher than prod because in development EVERY
+  // page load, HMR remount, and cart re-estimate from the same localhost IP
+  // shares this single bucket — at the prod limit, normal dev usage (plus
+  // tooling traffic) exhausts it within minutes and everything 429s for the
+  // rest of the 15-minute window.
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
-      limit: 100,
+      limit: process.env.NODE_ENV === 'production' ? 100 : 3000,
       standardHeaders: true,
       legacyHeaders: false,
     }),

@@ -18,6 +18,13 @@ interface CartState {
   estimate: CartEstimateResult | null;
   isEstimating: boolean;
   estimateError: string | null;
+  /**
+   * The lines+express key `estimate` was priced for. Runtime-only (the
+   * `partialize` below omits it from localStorage) — lets CartEstimateSync
+   * skip refetching after a remount when nothing actually changed, e.g. a
+   * dev Fast Refresh remounting the layout component.
+   */
+  pricedKey: string | null;
 
   itemCount: () => number;
   addItem: (line: Omit<CartLine, 'quantity'>, quantity: number) => void;
@@ -27,7 +34,11 @@ interface CartState {
   setExpress: (isExpress: boolean) => void;
   openDrawer: () => void;
   closeDrawer: () => void;
-  setEstimate: (estimate: CartEstimateResult | null, error: string | null) => void;
+  setEstimate: (
+    estimate: CartEstimateResult | null,
+    error: string | null,
+    key: string | null,
+  ) => void;
   setEstimating: (isEstimating: boolean) => void;
 }
 
@@ -49,6 +60,7 @@ export const useCartStore = create<CartState>()(
       estimate: null,
       isEstimating: false,
       estimateError: null,
+      pricedKey: null,
 
       itemCount: () => get().lines.reduce((sum, line) => sum + line.quantity, 0),
 
@@ -84,7 +96,8 @@ export const useCartStore = create<CartState>()(
       setExpress: (isExpress) => set({ isExpress }),
       openDrawer: () => set({ isDrawerOpen: true }),
       closeDrawer: () => set({ isDrawerOpen: false }),
-      setEstimate: (estimate, error) => set({ estimate, estimateError: error }),
+      setEstimate: (estimate, error, key) =>
+        set({ estimate, estimateError: error, pricedKey: key }),
       setEstimating: (isEstimating) => set({ isEstimating }),
     }),
     {

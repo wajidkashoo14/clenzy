@@ -52,9 +52,9 @@ export function Input({
           aria-invalid={Boolean(error) || undefined}
           aria-describedby={messageId}
           className={cn(
-            'border-border-strong bg-surface-alt text-text h-11 w-full rounded-md border px-3.5 text-sm',
+            'border-border bg-surface text-text hover:border-border-strong h-11 w-full rounded-md border px-3.5 text-sm',
             'placeholder:text-text-muted',
-            'duration-fast ease-standard transition-[border-color,box-shadow]',
+            'duration-base transition-[border-color,box-shadow] ease-out',
             'focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none',
             'disabled:cursor-not-allowed disabled:opacity-45',
             error && 'border-error focus-visible:border-error',

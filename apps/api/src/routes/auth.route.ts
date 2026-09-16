@@ -45,6 +45,16 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// 20 / IP / 15 min — the Google endpoints are full-page redirects, not JSON
+// APIs; the limit just stops the start endpoint being hammered into a
+// redirect-loop generator.
+const googleLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const authRouter = Router();
 
 authRouter.post(
@@ -55,6 +65,8 @@ authRouter.post(
 );
 authRouter.post('/otp/verify', otpVerifyLimiter, authController.verifyOtp);
 authRouter.post('/login', loginLimiter, authController.login);
+authRouter.get('/google', googleLimiter, authController.googleStart);
+authRouter.get('/google/callback', googleLimiter, authController.googleCallback);
 authRouter.post('/refresh', authController.refresh);
 authRouter.post('/logout', requireAuth, authController.logout);
 authRouter.post('/logout-all', requireAuth, authController.logoutAll);

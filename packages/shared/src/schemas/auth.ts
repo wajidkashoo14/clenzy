@@ -68,7 +68,9 @@ const notificationPrefsSchema = z.object({
 export const authUserSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
-  phone: z.string(),
+  // Optional: Google sign-ups (docs/INTEGRATIONS.md §2.5) are phone-less
+  // until the user adds one via Profile/checkout.
+  phone: z.string().optional(),
   email: z.string().optional(),
   role: z.enum(ROLES),
   notificationPrefs: notificationPrefsSchema,

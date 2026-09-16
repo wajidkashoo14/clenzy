@@ -103,8 +103,8 @@ export function OTPInput({
             onKeyDown={(e) => handleKeyDown(index, e)}
             onPaste={(e) => handlePaste(index, e)}
             className={cn(
-              'border-border-strong bg-surface-alt text-text h-12 w-11 rounded-md border text-center text-lg font-semibold tabular-nums',
-              'duration-fast ease-standard transition-[border-color,box-shadow]',
+              'border-border bg-surface text-text hover:border-border-strong h-12 w-11 rounded-md border text-center text-lg font-semibold tabular-nums',
+              'duration-base transition-[border-color,box-shadow] ease-out',
               'focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none',
               'disabled:cursor-not-allowed disabled:opacity-45',
               error && 'border-error focus-visible:border-error',

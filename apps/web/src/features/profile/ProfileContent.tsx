@@ -65,7 +65,7 @@ function ProfileDetailsForm({
       />
       <Input
         label="Phone"
-        value={user.phone}
+        value={user.phone ?? ''}
         disabled
         helperText="Contact support to change your phone number."
       />

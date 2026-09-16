@@ -131,7 +131,7 @@ export function NotificationBell(): ReactNode {
           <Bell className="size-5" aria-hidden="true" />
           {unreadCount > 0 && (
             <span
-              className="bg-accent text-text absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums"
+              className="bg-accent text-ink absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums"
               aria-hidden="true"
             >
               {unreadCount > 99 ? '99+' : unreadCount}

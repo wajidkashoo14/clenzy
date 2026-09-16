@@ -4,6 +4,7 @@ import { z } from 'zod';
 export const adminAgentSummarySchema = z.object({
   id: z.string(),
   name: z.string().optional(),
-  phone: z.string(),
+  // Optional: Google-created users are phone-less until they add one.
+  phone: z.string().optional(),
 });
 export type AdminAgentSummary = z.infer<typeof adminAgentSummarySchema>;

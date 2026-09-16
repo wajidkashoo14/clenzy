@@ -7,7 +7,7 @@ import { buildMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = buildMetadata({
   title: `Log in | ${brand.name}`,
-  description: `Log in to your ${brand.name} account with your phone number.`,
+  description: `Log in to your ${brand.name} account with your phone number or Google.`,
   path: '/login',
 });
 

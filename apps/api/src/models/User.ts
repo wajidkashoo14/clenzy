@@ -15,10 +15,20 @@ export interface StaffProfile {
 
 /** See docs/DATABASE.md "users". */
 export interface UserDocument {
-  phone: string;
+  /**
+   * Optional since Google sign-in (docs/INTEGRATIONS.md §2.13) creates
+   * phone-less accounts — the user adds a phone later via Profile/checkout.
+   * Unique + sparse: absent phones don't collide, but two users with the
+   * same phone still can't exist.
+   */
+  phone?: string;
   phoneVerified: boolean;
   email?: string;
   emailVerified: boolean;
+  /** Google account id (the `sub` claim) — set when the user signs in with Google. */
+  googleId?: string;
+  /** Google profile photo, if the account was created/linked via Google. */
+  avatarUrl?: string;
   passwordHash?: string;
   name?: string;
   role: Role;
@@ -58,10 +68,14 @@ export interface UserDocument {
 
 const userSchema = new Schema<UserDocument>(
   {
-    phone: { type: String, required: true, unique: true, trim: true },
+    // No `required` — Google-created users are phone-less until they add one
+    // (see the UserDocument comment). The existing unique index stays.
+    phone: { type: String, trim: true },
     phoneVerified: { type: Boolean, default: false },
     email: { type: String, trim: true, lowercase: true },
     emailVerified: { type: Boolean, default: false },
+    googleId: { type: String, trim: true },
+    avatarUrl: { type: String, trim: true },
     // select: false — never returned by a default find/findOne; see docs/SECURITY.md §1.
     passwordHash: { type: String, select: false },
     name: { type: String, trim: true, maxlength: 100 },
@@ -98,8 +112,11 @@ const userSchema = new Schema<UserDocument>(
   { timestamps: true },
 );
 
-// `phone` already gets a unique index from `unique: true` on the field above.
+// Sparse unique: multiple users may have NO phone (Google sign-ups), but no
+// two users may share one. Same pattern as the email index below.
+userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 userSchema.index({ email: 1 }, { unique: true, sparse: true });
+userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 userSchema.index({ role: 1, status: 1 });
 
 export const User = model<UserDocument>('User', userSchema);

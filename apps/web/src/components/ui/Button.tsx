@@ -8,41 +8,46 @@ import { cn } from '@/lib/cn';
  * See docs/DESIGN_SYSTEM.md §5 "Buttons". Hover/active states use
  * `color-mix()` to darken the token color rather than introducing new
  * hardcoded hex values — this keeps every shade traceable to a single
- * token per color family.
+ * token per color family. The 2026 visual refresh makes buttons pill-shaped
+ * (rounded-full), adds a hover lift + brand glow, and a CSS-only sheen sweep
+ * on primary/danger via the `.btn-sheen` class in globals.css.
  */
 const buttonVariants = cva(
   [
-    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium',
-    'transition-[background-color,color,transform,opacity] duration-fast ease-standard',
-    'active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45',
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium',
+    'transition-[background-color,color,transform,box-shadow,opacity] duration-base ease-out',
+    'hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]',
+    'disabled:pointer-events-none disabled:translate-y-0 disabled:opacity-45 disabled:shadow-none',
     'aria-busy:pointer-events-none',
   ],
   {
     variants: {
       variant: {
         primary: [
-          'bg-primary text-text-inverse',
-          'hover:bg-[color-mix(in_srgb,var(--color-primary)_92%,black)]',
-          'active:bg-[color-mix(in_srgb,var(--color-primary)_88%,black)]',
+          'bg-primary text-text-inverse shadow-glow btn-sheen',
+          'hover:bg-primary-hover hover:shadow-glow-lg',
+          'active:bg-[color-mix(in_srgb,var(--color-primary)_80%,var(--color-text))]',
         ],
         secondary: [
-          'border border-border-strong bg-surface text-text',
-          'hover:bg-surface-alt active:bg-surface-alt',
+          'border border-border-strong bg-surface text-text shadow-sm',
+          'hover:border-primary/50 hover:bg-primary-soft/40 hover:text-primary hover:shadow-md',
+          'active:bg-primary-soft/60',
         ],
-        ghost: ['text-text hover:bg-primary-soft active:bg-primary-soft'],
+        ghost: ['text-text hover:bg-primary-soft hover:text-primary active:bg-primary-soft'],
         danger: [
-          'bg-error text-text-inverse',
-          'hover:bg-[color-mix(in_srgb,var(--color-error)_92%,black)]',
-          'active:bg-[color-mix(in_srgb,var(--color-error)_88%,black)]',
+          'bg-error text-text-inverse btn-sheen shadow-[0_8px_20px_-6px_color-mix(in_srgb,var(--color-error)_45%,transparent)]',
+          'hover:bg-[color-mix(in_srgb,var(--color-error)_88%,var(--color-text))]',
+          'active:bg-[color-mix(in_srgb,var(--color-error)_80%,var(--color-text))]',
         ],
         link: [
-          'h-auto rounded-none p-0 text-primary underline-offset-4 hover:underline active:scale-100',
+          'h-auto rounded-none p-0 text-primary underline-offset-4 hover:underline',
+          'hover:translate-y-0 active:scale-100 active:translate-y-0',
         ],
       },
       size: {
         sm: 'h-9 px-4 text-sm',
         md: 'h-11 px-5 text-sm',
-        lg: 'h-13 px-6 text-base',
+        lg: 'h-13 px-7 text-base',
       },
     },
     defaultVariants: { variant: 'primary', size: 'md' },

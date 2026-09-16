@@ -24,6 +24,15 @@ const envSchema = z.object({
   // in emails/SMS (a relative path breaks once the recipient isn't already
   // on the site). See docs/PAYMENTS_AND_NOTIFICATIONS.md §3.3.
   WEB_APP_URL: z.string().default('http://localhost:3000'),
+  // This API's own externally-reachable origin — used to build the OAuth
+  // redirect_uri for Google sign-in (Google requires an absolute URL).
+  // See docs/INTEGRATIONS.md §2.13.
+  API_BASE_URL: z.string().default('http://localhost:5000'),
+  // Optional — see apps/api/src/integrations/google/index.ts and
+  // docs/INTEGRATIONS.md §2.13. Unset means Google sign-in is disabled and
+  // its start endpoint redirects back to the web app with an error.
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
   // Shared with apps/web's REVALIDATE_SECRET — must match exactly. Optional:
   // unset means catalog/pricing admin mutations skip the ISR-busting webhook
   // call and pages fall back to their normal revalidate-on-interval TTL.

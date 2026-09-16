@@ -61,7 +61,7 @@ export default function AccountPage() {
           {user.name ? `Hi, ${user.name}` : 'Your account'}
         </h1>
         <p className="text-text-muted mt-1 text-sm">
-          {user.phone} · {user.role}
+          {user.phone ?? 'No phone added'} · {user.role}
         </p>
       </div>
 

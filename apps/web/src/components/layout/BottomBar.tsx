@@ -59,7 +59,7 @@ export function BottomBar({ items, hidden = false }: BottomBarProps): ReactNode 
               {item.icon}
               {item.badge !== undefined && item.badge > 0 && (
                 <span
-                  className="bg-accent text-text absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums"
+                  className="bg-accent text-ink absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums"
                   aria-hidden="true"
                 >
                   {item.badge > 99 ? '99+' : item.badge}

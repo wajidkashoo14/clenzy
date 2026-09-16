@@ -34,6 +34,7 @@ import { brand } from '@/content/brand';
 import { logout } from '@/features/auth/api';
 import { AuthSessionInit } from '@/features/auth/AuthSessionInit';
 import { cn } from '@/lib/cn';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { useAuthStore } from '@/stores/authStore';
 
 const NAV_ITEMS: { href: string; label: string; icon: typeof LayoutDashboard; minRole?: Role }[] = [
@@ -96,10 +97,10 @@ function NavLinks({
             onClick={onNavigate}
             title={collapsed ? item.label : undefined}
             className={cn(
-              'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium',
-              'duration-fast ease-standard transition-colors',
+              'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium',
+              'duration-base transition-[background-color,color,box-shadow] ease-out',
               isActive
-                ? 'bg-primary-soft text-primary'
+                ? 'bg-primary-soft text-primary shadow-sm'
                 : 'text-text-muted hover:bg-surface-alt hover:text-text',
             )}
           >
@@ -278,8 +279,10 @@ export function AdminLayoutShell({ children }: { children: ReactNode }) {
                     placeholder="Search orders…  (press /)"
                     aria-label="Search orders"
                     className={cn(
-                      'border-border-strong bg-surface-alt text-text h-9 w-full rounded-md border pr-3 pl-9 text-sm',
+                      'border-border bg-surface text-text h-9 w-full rounded-full border pr-3 pl-9 text-sm',
                       'placeholder:text-text-muted',
+                      'duration-base transition-[border-color,box-shadow] ease-out',
+                      'hover:border-border-strong',
                       'focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none',
                     )}
                   />
@@ -288,8 +291,9 @@ export function AdminLayoutShell({ children }: { children: ReactNode }) {
 
               <div className="ml-auto flex shrink-0 items-center gap-3">
                 <span className="text-text-muted hidden text-sm lg:inline">
-                  {user.name ?? user.phone} · <span className="capitalize">{user.role}</span>
+                  {user.name ?? user.phone ?? '—'} · <span className="capitalize">{user.role}</span>
                 </span>
+                <ThemeToggle />
                 <button
                   type="button"
                   onClick={() => void handleLogout()}

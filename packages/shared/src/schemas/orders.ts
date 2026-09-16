@@ -156,7 +156,7 @@ export const orderTrackResultSchema = z.object({
   statusLabel: z.string(),
   timeline: z.array(orderTrackTimelineEntrySchema),
   estimatedDelivery: z.string().optional(),
-  agent: z.object({ name: z.string(), phone: z.string() }).nullable(),
+  agent: z.object({ name: z.string(), phone: z.string().optional() }).nullable(),
 });
 export type OrderTrackResult = z.infer<typeof orderTrackResultSchema>;
 

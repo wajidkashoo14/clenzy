@@ -1,5 +1,7 @@
 import { Clock, MapPinned, ShieldCheck, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { SectionHeading } from '@/components/marketing/SectionHeading';
+import { Stagger, StaggerItem } from '@/components/marketing/Stagger';
 
 const POINTS = [
   {
@@ -30,33 +32,28 @@ export function Differentiators(): ReactNode {
   return (
     <section className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
-        <div>
-          <p className="text-primary text-sm font-semibold tracking-wide uppercase">Why Clenzy</p>
-          <h2 className="font-heading text-text mt-2 text-3xl font-semibold">
-            A fabric-care service built for Srinagar, not adapted to it
-          </h2>
-          <p className="text-text-muted mt-4">
-            Most laundry apps treat every city the same. We built ours around what actually needs
-            care here — pashmina, phereans, heavy woollens — alongside everyday wash and fold.
-          </p>
-        </div>
+        <SectionHeading
+          eyebrow="Why Clenzy"
+          title="A fabric-care service built for Srinagar, not adapted to it"
+          description="Most laundry apps treat every city the same. We built ours around what actually needs care here — pashmina, phereans, heavy woollens — alongside everyday wash and fold."
+        />
 
-        <dl className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <Stagger as="dl" className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           {POINTS.map((point) => {
             const Icon = point.icon;
             return (
-              <div key={point.title}>
+              <StaggerItem key={point.title} as="div" className="group">
                 <dt className="flex items-center gap-2.5">
-                  <span className="bg-primary-soft text-primary flex size-9 items-center justify-center rounded-md">
+                  <span className="from-primary-soft to-secondary-soft text-primary ring-primary/10 duration-base flex size-9 items-center justify-center rounded-xl bg-gradient-to-br ring-1 transition-transform ease-out group-hover:scale-110">
                     <Icon className="size-4.5" aria-hidden="true" />
                   </span>
                   <span className="text-text text-sm font-semibold">{point.title}</span>
                 </dt>
                 <dd className="text-text-muted mt-2 text-sm">{point.description}</dd>
-              </div>
+              </StaggerItem>
             );
           })}
-        </dl>
+        </Stagger>
       </div>
     </section>
   );

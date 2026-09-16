@@ -18,8 +18,8 @@ export function EmptyState({
 }: EmptyStateProps): ReactNode {
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-      <div className="bg-surface-alt flex size-12 items-center justify-center rounded-full">
-        <Icon className="text-text-muted size-6" aria-hidden="true" />
+      <div className="bg-primary-soft/60 ring-primary-soft/50 text-primary flex size-14 items-center justify-center rounded-full ring-8">
+        <Icon className="size-6" aria-hidden="true" />
       </div>
       <div className="flex flex-col gap-1">
         <p className="text-text text-sm font-semibold">{title}</p>

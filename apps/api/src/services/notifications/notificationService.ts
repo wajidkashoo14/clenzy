@@ -176,6 +176,17 @@ async function dispatchOne(
     return;
   }
 
+  if (!user.phone) {
+    // Phone-less user (Google sign-up that hasn't added a number yet) — SMS
+    // can never deliver, so fail permanently like the missing-template case.
+    // In-app/email still go out above.
+    await Notification.updateOne(
+      { _id: notification._id },
+      { $set: { status: 'failed', error: 'NO_PHONE' } },
+    );
+    return;
+  }
+
   try {
     const result = await smsAdapter.sendTransactionalSms(
       user.phone,

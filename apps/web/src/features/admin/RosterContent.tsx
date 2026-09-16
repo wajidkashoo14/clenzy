@@ -26,7 +26,7 @@ export function RosterContent(): ReactNode {
   const [date, setDate] = useState(todayInKolkata());
   const [type, setType] = useState<'pickup' | 'delivery'>('pickup');
   const [result, setResult] = useState<LoadedResult | null>(null);
-  const [agents, setAgents] = useState<{ id: string; name?: string; phone: string }[]>([]);
+  const [agents, setAgents] = useState<{ id: string; name?: string; phone?: string }[]>([]);
   const [assigningWindow, setAssigningWindow] = useState<string | null>(null);
 
   const requestKey = `${date}|${type}`;
@@ -135,7 +135,7 @@ export function RosterContent(): ReactNode {
               <Select
                 label=""
                 placeholder={assigningWindow === slotWindow ? 'Assigning…' : 'Assign whole window…'}
-                options={agents.map((a) => ({ value: a.id, label: a.name ?? a.phone }))}
+                options={agents.map((a) => ({ value: a.id, label: a.name ?? a.phone ?? 'Agent' }))}
                 disabled={assigningWindow === slotWindow}
                 onValueChange={(agentId) => void handleBulkAssign(slotWindow, agentId)}
                 className="w-44"

@@ -3,13 +3,19 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/cn';
 
 const badgeVariants = cva(
-  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+  [
+    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+    // Hairline inset ring in the badge's own color keeps the tint legible on
+    // white surfaces without introducing new per-color values.
+    'shadow-[inset_0_0_0_1px_color-mix(in_srgb,currentColor_16%,transparent)]',
+  ],
   {
     variants: {
       color: {
         primary: 'bg-primary-soft text-primary',
         secondary: 'bg-secondary-soft text-secondary',
-        accent: 'bg-accent-soft text-[color-mix(in_srgb,var(--color-accent)_65%,black)]',
+        accent:
+          'bg-accent-soft text-[color-mix(in_srgb,var(--color-accent)_75%,var(--color-text))]',
         success: 'bg-success-soft text-success',
         warning: 'bg-warning-soft text-warning',
         error: 'bg-error-soft text-error',

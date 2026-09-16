@@ -296,7 +296,7 @@ export function OrderDetailContent({ id }: { id: string }): ReactNode {
   const currentUser = useAuthStore((s) => s.user);
   const [order, setOrder] = useState<AdminOrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [agents, setAgents] = useState<{ id: string; name?: string; phone: string }[]>([]);
+  const [agents, setAgents] = useState<{ id: string; name?: string; phone?: string }[]>([]);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
   const [rescheduling, setRescheduling] = useState<'pickup' | 'delivery' | null>(null);
@@ -437,7 +437,7 @@ export function OrderDetailContent({ id }: { id: string }): ReactNode {
           <h2 className="text-text text-sm font-semibold">Assignment</h2>
           <Select
             label="Pickup agent"
-            options={agents.map((a) => ({ value: a.id, label: a.name ?? a.phone }))}
+            options={agents.map((a) => ({ value: a.id, label: a.name ?? a.phone ?? 'Agent' }))}
             value={order.assignedPickupAgentId ?? ''}
             placeholder="Unassigned"
             onValueChange={(agentId) =>
@@ -450,7 +450,7 @@ export function OrderDetailContent({ id }: { id: string }): ReactNode {
           />
           <Select
             label="Delivery agent"
-            options={agents.map((a) => ({ value: a.id, label: a.name ?? a.phone }))}
+            options={agents.map((a) => ({ value: a.id, label: a.name ?? a.phone ?? 'Agent' }))}
             value={order.assignedDeliveryAgentId ?? ''}
             placeholder="Unassigned"
             onValueChange={(agentId) =>

@@ -204,6 +204,69 @@ export async function loginWithPassword(
   return { user: toAuthUser(user), ...tokens };
 }
 
+/**
+ * Google sign-in — see docs/INTEGRATIONS.md §2.13. Resolution order:
+ *   1. match on googleId (returning Google user);
+ *   2. match on the SAME verified email (links Google to an existing
+ *      OTP/password account — Google has already proofed the email);
+ *   3. create a phone-less customer (they add a phone via Profile/checkout).
+ * Suspended/deleted accounts are refused exactly as in the other flows.
+ */
+export async function loginWithGoogle(
+  profile: {
+    googleId: string;
+    email: string;
+    emailVerified: boolean;
+    name?: string;
+    avatarUrl?: string;
+  },
+  meta: SessionMeta,
+): Promise<{ user: AuthUser } & TokenPair> {
+  let user = await User.findOne({ googleId: profile.googleId });
+  let isNewUser = false;
+
+  if (!user && profile.emailVerified) {
+    user = await User.findOne({ email: profile.email });
+    if (user) {
+      user.googleId = profile.googleId;
+      user.emailVerified = true;
+    }
+  }
+
+  if (!user) {
+    user = await User.create({
+      googleId: profile.googleId,
+      email: profile.email,
+      emailVerified: profile.emailVerified,
+      name: profile.name,
+      avatarUrl: profile.avatarUrl,
+    });
+    isNewUser = true;
+  } else if (!user.avatarUrl && profile.avatarUrl) {
+    user.avatarUrl = profile.avatarUrl;
+  }
+
+  if (user.status === 'suspended' || user.status === 'deleted') {
+    throw new AppError(403, 'ACCOUNT_SUSPENDED', 'This account is not active.');
+  }
+
+  user.lastLoginAt = new Date();
+  await user.save();
+
+  if (isNewUser) {
+    sendNotification({
+      userId: String(user._id),
+      type: 'signup_welcome',
+      data: { name: user.name },
+    }).catch((err: unknown) =>
+      logger.error({ err, userId: String(user._id) }, 'sendNotification failed'),
+    );
+  }
+
+  const tokens = await issueSession(user, meta);
+  return { user: toAuthUser(user, isNewUser), ...tokens };
+}
+
 export async function refreshSession(
   rawRefreshToken: string,
   meta: SessionMeta,

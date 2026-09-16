@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { Container } from '@/components/layout/Container';
 import { Button } from '@/components/ui/Button';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { brand } from '@/content/brand';
 import { logout } from '@/features/auth/api';
 import { AuthSessionInit } from '@/features/auth/AuthSessionInit';
@@ -30,16 +31,19 @@ export default function AgentLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <AuthSessionInit />
-      <header className="border-border bg-surface sticky top-0 z-10 border-b">
+      <header className="border-border bg-surface/80 sticky top-0 z-10 border-b backdrop-blur-lg">
         <Container className="flex h-14 items-center justify-between">
-          <span className="font-heading text-primary text-lg font-semibold">
-            {brand.name} Agent
+          <span className="font-heading text-primary flex items-center gap-2 text-lg font-semibold">
+            {brand.name} <span className="text-text-muted text-sm font-medium">Agent</span>
           </span>
-          {user && (
-            <Button variant="ghost" size="sm" onClick={() => void handleLogout()}>
-              Log out
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            {user && (
+              <Button variant="ghost" size="sm" onClick={() => void handleLogout()}>
+                Log out
+              </Button>
+            )}
+          </div>
         </Container>
       </header>
       <main className="flex-1">

@@ -66,8 +66,8 @@ export function Select({
           aria-describedby={messageId}
           aria-invalid={Boolean(error) || undefined}
           className={cn(
-            'border-border-strong bg-surface-alt text-text flex h-11 w-full items-center justify-between gap-2 rounded-md border px-3.5 text-sm',
-            'duration-fast ease-standard transition-[border-color,box-shadow]',
+            'border-border bg-surface text-text hover:border-border-strong flex h-11 w-full items-center justify-between gap-2 rounded-md border px-3.5 text-sm',
+            'duration-base transition-[border-color,box-shadow] ease-out',
             'data-[placeholder]:text-text-muted',
             'focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none',
             'disabled:cursor-not-allowed disabled:opacity-45',

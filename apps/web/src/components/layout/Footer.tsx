@@ -33,6 +33,13 @@ export interface FooterProps {
   brandName: string;
 }
 
+/**
+ * 2026 refresh: deep brand-ink footer with a gradient hairline on top and a
+ * glow on the brand tile — the dark close contrasts the light page and makes
+ * the CTA band above it feel intentional. All link styles live in this file
+ * (its own LinkList/ContactDetails helpers) so the dark surface stays
+ * self-contained.
+ */
 export function Footer({
   columns,
   outlets,
@@ -46,7 +53,12 @@ export function Footer({
   brandName,
 }: FooterProps): ReactNode {
   return (
-    <footer className="border-border bg-surface border-t">
+    <footer className="bg-ink text-on-ink">
+      {/* Signature gradient hairline separating page from footer. */}
+      <div
+        className="from-primary via-secondary to-accent h-0.5 bg-gradient-to-r"
+        aria-hidden="true"
+      />
       {/* TODO(design): replace with the real chinar-vine line motif once the
           brand asset exists — see docs/DESIGN_SYSTEM.md §6. Placeholder: none,
           rather than fabricated brand artwork. */}
@@ -57,7 +69,7 @@ export function Footer({
             <FooterColumnBlock key={column.title} column={column} />
           ))}
           <div>
-            <p className="text-text mb-3 text-sm font-semibold">Reach us</p>
+            <p className="text-on-ink mb-3 text-sm font-semibold">Reach us</p>
             <ContactDetails
               outlets={outlets}
               phone={phone}
@@ -68,19 +80,21 @@ export function Footer({
           </div>
         </div>
 
-        {/* Mobile/tablet: accordions */}
+        {/* Mobile/tablet: accordions, restyled for the dark surface */}
         <Accordion type="single" collapsible className="lg:hidden">
           {columns.map((column) => (
-            <AccordionItem key={column.title} value={column.title}>
-              <AccordionTrigger>{column.title}</AccordionTrigger>
-              <AccordionContent>
+            <AccordionItem key={column.title} value={column.title} className="border-white/10">
+              <AccordionTrigger className="text-on-ink hover:text-on-ink">
+                {column.title}
+              </AccordionTrigger>
+              <AccordionContent className="text-on-ink/70">
                 <LinkList links={column.links} />
               </AccordionContent>
             </AccordionItem>
           ))}
-          <AccordionItem value="reach-us">
-            <AccordionTrigger>Reach us</AccordionTrigger>
-            <AccordionContent>
+          <AccordionItem value="reach-us" className="border-white/10">
+            <AccordionTrigger className="text-on-ink hover:text-on-ink">Reach us</AccordionTrigger>
+            <AccordionContent className="text-on-ink/70">
               <ContactDetails
                 outlets={outlets}
                 phone={phone}
@@ -93,14 +107,14 @@ export function Footer({
         </Accordion>
 
         {socialLinks.length > 0 && (
-          <div className="border-border mt-8 flex gap-4 border-t pt-6 lg:mt-10">
+          <div className="mt-8 flex gap-3 border-t border-white/10 pt-6 lg:mt-10">
             {socialLinks.map((link) => (
               <a
                 key={`${link.label}-${link.href}`}
                 href={link.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-text-muted duration-fast hover:text-text text-sm transition-colors"
+                className="text-on-ink/70 duration-base hover:text-on-ink inline-flex h-9 items-center rounded-full px-4 text-xs font-medium ring-1 ring-white/10 transition-[background-color,color,transform] ease-out hover:-translate-y-0.5 hover:bg-white/10"
               >
                 {link.label}
               </a>
@@ -109,8 +123,8 @@ export function Footer({
         )}
       </Container>
 
-      <div className="border-border border-t">
-        <Container className="text-text-muted flex flex-col gap-2 py-5 text-xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="border-t border-white/10">
+        <Container className="text-on-ink/50 flex flex-col gap-2 py-5 text-xs sm:flex-row sm:items-center sm:justify-between">
           <p>
             © {new Date().getFullYear()} {brandName}. All rights reserved.
             {gstNumber && <span className="ml-2">GSTIN: {gstNumber}</span>}
@@ -125,7 +139,7 @@ export function Footer({
 function FooterColumnBlock({ column }: { column: FooterColumn }): ReactNode {
   return (
     <div>
-      <p className="text-text mb-3 text-sm font-semibold">{column.title}</p>
+      <p className="text-on-ink mb-3 text-sm font-semibold">{column.title}</p>
       <LinkList links={column.links} />
     </div>
   );
@@ -138,7 +152,7 @@ function LinkList({ links, inline = false }: { links: NavLink[]; inline?: boolea
         <li key={`${link.label}-${link.href}`}>
           <Link
             href={link.href}
-            className="text-text-muted duration-fast hover:text-text text-sm transition-colors"
+            className="text-on-ink/60 duration-fast hover:text-on-ink transition-colors"
           >
             {link.label}
           </Link>
@@ -162,25 +176,25 @@ function ContactDetails({
   hours: string;
 }): ReactNode {
   return (
-    <div className="text-text-muted flex flex-col gap-3 text-sm">
+    <div className="text-on-ink/60 flex flex-col gap-3 text-sm">
       {outlets.map((outlet) => (
         <div key={outlet.name}>
-          <p className="text-text font-medium">{outlet.name}</p>
+          <p className="text-on-ink font-medium">{outlet.name}</p>
           <p>{outlet.address}</p>
         </div>
       ))}
-      <a href={`tel:${phone}`} className="duration-fast hover:text-text transition-colors">
+      <a href={`tel:${phone}`} className="duration-fast hover:text-on-ink transition-colors">
         {phone}
       </a>
       <a
         href={whatsappHref}
         target="_blank"
         rel="noopener noreferrer"
-        className="duration-fast hover:text-text transition-colors"
+        className="duration-fast hover:text-on-ink transition-colors"
       >
         WhatsApp us
       </a>
-      <a href={`mailto:${email}`} className="duration-fast hover:text-text transition-colors">
+      <a href={`mailto:${email}`} className="duration-fast hover:text-on-ink transition-colors">
         {email}
       </a>
       <p>{hours}</p>

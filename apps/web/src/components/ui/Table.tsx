@@ -191,7 +191,7 @@ export function Table<T>({
                     key={key}
                     onClick={() => onRowClick?.(row)}
                     className={cn(
-                      'border-border duration-fast ease-standard border-t transition-colors',
+                      'border-border duration-base border-t transition-colors ease-out',
                       onRowClick && 'cursor-pointer',
                       !isSelected && 'hover:bg-primary-soft/40',
                     )}
@@ -250,7 +250,8 @@ export function Table<T>({
               onClick={() => onRowClick?.(row)}
               className={cn(
                 'border-border bg-surface flex flex-col gap-2 rounded-lg border p-4',
-                onRowClick && 'cursor-pointer',
+                'duration-base transition-[border-color,box-shadow] ease-out',
+                onRowClick && 'hover:border-primary/40 cursor-pointer hover:shadow-md',
               )}
             >
               {selectable && (

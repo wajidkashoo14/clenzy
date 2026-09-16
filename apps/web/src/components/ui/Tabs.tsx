@@ -79,7 +79,7 @@ export function TabsTrigger({ value, className, children, ...props }: TabsTrigge
       {isActive && (
         <motion.span
           layoutId={`tabs-active-pill-${instanceId}`}
-          className="bg-primary absolute inset-0 -z-10 rounded-full"
+          className="bg-primary shadow-glow absolute inset-0 -z-10 rounded-full"
           transition={transitions.spring}
         />
       )}

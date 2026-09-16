@@ -80,8 +80,8 @@ export function DatePicker({
           max={maxDate ? format(maxDate, 'yyyy-MM-dd') : undefined}
           onChange={(e) => onChange(e.target.value ? parseISO(e.target.value) : null)}
           className={cn(
-            'border-border-strong bg-surface-alt text-text h-11 w-full rounded-md border px-3.5 text-sm',
-            'duration-fast ease-standard transition-[border-color,box-shadow]',
+            'border-border bg-surface text-text hover:border-border-strong h-11 w-full rounded-md border px-3.5 text-sm',
+            'duration-base transition-[border-color,box-shadow] ease-out',
             'focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none',
             'disabled:cursor-not-allowed disabled:opacity-45',
             error && 'border-error focus-visible:border-error',
@@ -193,7 +193,7 @@ function DesktopDatePicker({
             className={cn(
               'border-border-strong bg-surface-alt flex h-11 w-full items-center justify-between gap-2 rounded-md border px-3.5 text-sm',
               value ? 'text-text' : 'text-text-muted',
-              'duration-fast ease-standard transition-[border-color,box-shadow]',
+              'duration-base transition-[border-color,box-shadow] ease-out',
               'focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none',
               'disabled:cursor-not-allowed disabled:opacity-45',
               error && 'border-error focus-visible:border-error',

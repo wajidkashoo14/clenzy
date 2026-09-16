@@ -20,6 +20,8 @@
   --color-text: var(--color-text);
   --color-text-muted: var(--color-text-muted);
   --color-text-inverse: var(--color-text-inverse);
+  --color-on-ink: var(--color-on-ink);
+  --color-ink: var(--color-ink);
   --color-success: var(--color-success);
   --color-success-soft: var(--color-success-soft);
   --color-warning: var(--color-warning);
@@ -40,6 +42,8 @@
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+  --shadow-glow: var(--shadow-glow);
+  --shadow-glow-lg: var(--shadow-glow-lg);
   --shadow-focus: var(--shadow-focus);
 
   /* Motion */
@@ -51,16 +55,185 @@
   --ease-standard: var(--ease-standard);
   --ease-out: var(--ease-out);
   --ease-in: var(--ease-in);
+  --ease-soft: var(--ease-soft);
+  --ease-spring: var(--ease-spring);
+
+  /* Ambient animation utilities — see the keyframes in the @theme block
+     below. All of them are covered by the global prefers-reduced-motion
+     override at the bottom of this file. */
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-aurora: aurora 16s ease-in-out infinite;
+  --animate-gradient-pan: gradient-pan 10s linear infinite;
+  --animate-pulse-soft: pulse-soft 3.2s ease-in-out infinite;
 
   /* Fonts — variables come from next/font in layout.tsx */
   --font-sans: var(--font-inter);
   --font-heading: var(--font-fraunces);
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-12px);
+    }
+  }
+
+  @keyframes aurora {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    33% {
+      transform: translate(4%, -6%) scale(1.08);
+    }
+    66% {
+      transform: translate(-5%, 4%) scale(0.95);
+    }
+  }
+
+  @keyframes gradient-pan {
+    from {
+      background-position: 0% 50%;
+    }
+    to {
+      background-position: 200% 50%;
+    }
+  }
+
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.75;
+      transform: scale(1.06);
+    }
+  }
 }
 
 body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
+  /* Eases the canvas when the theme toggles; component surfaces flip through
+     their own (already smooth) transitions. Killed entirely by the global
+     prefers-reduced-motion override below. */
+  transition:
+    background-color var(--duration-slow) var(--ease-standard),
+    color var(--duration-slow) var(--ease-standard);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  color: var(--color-text);
+}
+
+/* Quiet, brand-tinted scrollbar — purely cosmetic, falls back to the native
+   bar in browsers without ::-webkit-scrollbar. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border-strong) 70%, transparent);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-text-muted) 50%, transparent);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Brand gradient text for display headlines — `.text-gradient-brand`. */
+.text-gradient-brand {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-primary) 0%,
+    var(--color-secondary) 55%,
+    var(--color-accent) 110%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Slowly panning variant — pair with `animate-gradient-pan` and an oversized
+   background-size for animated gradient headlines. */
+.text-gradient-animated {
+  background-size: 200% auto;
+}
+
+/* Soft aurora mesh used behind hero/CTA surfaces — three drifting radial
+   glows in brand tints over the base background. */
+.bg-hero-mesh {
+  background:
+    radial-gradient(
+      42rem 30rem at 12% -8%,
+      color-mix(in srgb, var(--color-primary-soft) 75%, transparent),
+      transparent 65%
+    ),
+    radial-gradient(
+      38rem 28rem at 95% 12%,
+      color-mix(in srgb, var(--color-secondary-soft) 70%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      34rem 26rem at 55% 115%,
+      color-mix(in srgb, var(--color-accent-soft) 55%, transparent),
+      transparent 60%
+    ),
+    var(--color-bg);
+}
+
+/* Inverse (dark-ink) variant for the CTA band. */
+.bg-ink-mesh {
+  background:
+    radial-gradient(
+      36rem 26rem at 8% 0%,
+      color-mix(in srgb, var(--color-primary) 38%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      32rem 24rem at 96% 100%,
+      color-mix(in srgb, var(--color-secondary) 30%, transparent),
+      transparent 60%
+    ),
+    var(--color-ink);
+}
+
+/* Sheen sweep on hover for the primary CTA — a pure-CSS pseudo-element so it
+   composes with asChild/Slot rendering (no extra DOM nodes required). */
+.btn-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.btn-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 42%,
+    rgb(255 255 255 / 0.28) 50%,
+    transparent 58%
+  );
+  transform: translateX(-130%);
+  transition: transform 0.7s var(--ease-out);
+  pointer-events: none;
+}
+.btn-sheen:hover::after {
+  transform: translateX(130%);
 }
 
 /* Radix Accordion's recommended height-animation pattern — driven by the

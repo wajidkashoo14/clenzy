@@ -233,12 +233,14 @@ export function OrderTrackingContent({ orderNumber }: { orderNumber: string }): 
             <p className="text-text-muted text-[13px]">Your agent</p>
             <p className="text-text text-sm font-medium">{track.agent.name}</p>
           </div>
-          <Button asChild variant="secondary" size="sm">
-            <a href={`tel:${track.agent.phone}`}>
-              <Phone className="size-4" aria-hidden="true" />
-              Call
-            </a>
-          </Button>
+          {track.agent.phone && (
+            <Button asChild variant="secondary" size="sm">
+              <a href={`tel:${track.agent.phone}`}>
+                <Phone className="size-4" aria-hidden="true" />
+                Call
+              </a>
+            </Button>
+          )}
         </Card>
       )}
 

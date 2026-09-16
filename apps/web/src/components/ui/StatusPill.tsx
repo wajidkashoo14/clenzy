@@ -6,7 +6,7 @@ import type { LucideIcon } from 'lucide-react';
 const colorClasses: Record<StatusColor, string> = {
   primary: 'bg-primary-soft text-primary',
   secondary: 'bg-secondary-soft text-secondary',
-  accent: 'bg-accent-soft text-[color-mix(in_srgb,var(--color-accent)_65%,black)]',
+  accent: 'bg-accent-soft text-[color-mix(in_srgb,var(--color-accent)_75%,var(--color-text))]',
   success: 'bg-success-soft text-success',
   warning: 'bg-warning-soft text-warning',
   error: 'bg-error-soft text-error',
@@ -31,6 +31,8 @@ export function StatusPill({
     <span
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+        // Hairline inset ring in the pill's own color, matching Badge.
+        'shadow-[inset_0_0_0_1px_color-mix(in_srgb,currentColor_16%,transparent)]',
         colorClasses[color],
         className,
       )}

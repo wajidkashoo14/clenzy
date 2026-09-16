@@ -14,6 +14,7 @@ import { cn } from '@/lib/cn';
 import { transitions } from '@/lib/motion';
 import type { NavGroup, NavLink } from './MobileNav';
 import { MobileNav } from './MobileNav';
+import { ThemeToggle } from './ThemeToggle';
 
 export interface HeaderNavItem {
   label: string;
@@ -62,16 +63,24 @@ export function Header({
 
   return (
     <>
-      <motion.header
-        animate={{
-          backgroundColor: isSolid ? 'var(--color-surface)' : 'rgba(0,0,0,0)',
-          borderBottomColor: isSolid ? 'var(--color-border)' : 'rgba(0,0,0,0)',
-          boxShadow: isSolid ? 'var(--shadow-sm)' : '0 0 0 rgba(0,0,0,0)',
-        }}
-        transition={transitions.standard}
-        className="sticky top-0 z-30 h-14 border-b lg:h-18"
-      >
-        <div className="mx-auto flex h-full max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-30 h-14 backdrop-blur-xl backdrop-saturate-150 lg:h-18">
+        {/* Frosted layer (behind content): surface tint + hairline + shadow,
+            fading in on scroll. Framer Motion can't tween into a
+            `color-mix()` string (it logs a type warning and snaps), so the
+            translucent surface is this static layer whose opacity animates —
+            same look, animatable value. aria-hidden: presentational. */}
+        <motion.div
+          aria-hidden="true"
+          initial={false}
+          animate={{
+            opacity: isSolid ? 1 : 0,
+            borderBottomColor: isSolid ? 'var(--color-border)' : 'rgba(0,0,0,0)',
+            boxShadow: isSolid ? 'var(--shadow-sm)' : '0 0 0 rgba(0,0,0,0)',
+          }}
+          transition={transitions.standard}
+          className="border-border bg-surface/80 absolute inset-0 border-b"
+        />
+        <div className="relative mx-auto flex h-full max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link href="/" className="focus-visible:shadow-focus shrink-0 focus-visible:outline-none">
             {logo}
           </Link>
@@ -84,8 +93,8 @@ export function Header({
                     <>
                       <NavigationMenu.Trigger
                         className={cn(
-                          'text-text flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium',
-                          'duration-fast ease-standard hover:bg-surface-alt transition-colors',
+                          'text-text flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium',
+                          'duration-base hover:bg-surface-alt hover:text-primary transition-[background-color,color] ease-out',
                           'focus-visible:shadow-focus focus-visible:outline-none',
                         )}
                       >
@@ -100,8 +109,8 @@ export function Header({
                       <Link
                         href={item.href ?? '#'}
                         className={cn(
-                          'text-text block rounded-md px-3 py-2 text-sm font-medium',
-                          'duration-fast ease-standard hover:bg-surface-alt transition-colors',
+                          'text-text block rounded-full px-3.5 py-2 text-sm font-medium',
+                          'duration-base hover:bg-surface-alt hover:text-primary transition-[background-color,color] ease-out',
                           'focus-visible:shadow-focus focus-visible:outline-none',
                         )}
                       >
@@ -124,19 +133,21 @@ export function Header({
               {phone}
             </a>
 
+            <ThemeToggle />
+
             {user && <NotificationBell />}
 
             <button
               type="button"
               onClick={openCartDrawer}
               aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ''}`}
-              className="text-text duration-fast ease-standard hover:bg-surface-alt focus-visible:shadow-focus relative flex size-10 items-center justify-center rounded-full transition-colors focus-visible:outline-none"
+              className="text-text duration-base hover:bg-primary-soft hover:text-primary focus-visible:shadow-focus relative flex size-10 items-center justify-center rounded-full transition-[background-color,color,transform] ease-out hover:scale-105 focus-visible:outline-none active:scale-95"
             >
               <ShoppingCart className="size-5" aria-hidden="true" />
               {cartCount > 0 && (
                 <span
                   key={cartCount}
-                  className="bg-accent text-text absolute top-1 right-1 flex h-4 min-w-4 animate-[cart-badge-bump_var(--duration-base)_var(--ease-standard)] items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums"
+                  className="bg-accent text-ink absolute top-1 right-1 flex h-4 min-w-4 animate-[cart-badge-bump_var(--duration-base)_var(--ease-standard)] items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums"
                   aria-hidden="true"
                 >
                   {cartCount > 99 ? '99+' : cartCount}
@@ -159,13 +170,13 @@ export function Header({
               type="button"
               onClick={() => setMobileNavOpen(true)}
               aria-label="Open menu"
-              className="text-text duration-fast ease-standard hover:bg-surface-alt focus-visible:shadow-focus flex size-10 items-center justify-center rounded-full transition-colors focus-visible:outline-none lg:hidden"
+              className="text-text duration-base hover:bg-primary-soft hover:text-primary focus-visible:shadow-focus flex size-10 items-center justify-center rounded-full transition-[background-color,color,transform] ease-out hover:scale-105 focus-visible:outline-none active:scale-95 lg:hidden"
             >
               <Menu className="size-5" aria-hidden="true" />
             </button>
           </div>
         </div>
-      </motion.header>
+      </header>
 
       <MobileNav
         open={mobileNavOpen}

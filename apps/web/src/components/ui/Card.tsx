@@ -17,8 +17,8 @@ const cardVariants = cva('rounded-lg border border-border bg-surface shadow-sm',
     },
     interactive: {
       true: [
-        'transition-[transform,box-shadow,border-color] duration-fast ease-standard',
-        'hover:-translate-y-1 hover:border-primary hover:shadow-lg',
+        'transition-[transform,box-shadow,border-color] duration-base ease-out',
+        'hover:-translate-y-1.5 hover:border-primary/40 hover:shadow-lg',
         'focus-visible:shadow-focus focus-visible:outline-none',
       ],
       false: '',

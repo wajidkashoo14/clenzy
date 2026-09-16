@@ -4,7 +4,7 @@
  * docs/ARCHITECTURE.md §5 for the intended final shape.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 
 export interface ApiErrorDetail {
   field?: string;

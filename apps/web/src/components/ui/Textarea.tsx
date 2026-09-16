@@ -72,9 +72,9 @@ export function Textarea({
         maxLength={maxLength}
         rows={3}
         className={cn(
-          'border-border-strong bg-surface-alt text-text min-h-11 w-full resize-none overflow-hidden rounded-md border px-3.5 py-2.5 text-sm',
+          'border-border bg-surface text-text hover:border-border-strong min-h-11 w-full resize-none overflow-hidden rounded-md border px-3.5 py-2.5 text-sm',
           'placeholder:text-text-muted',
-          'duration-fast ease-standard transition-[border-color,box-shadow]',
+          'duration-base transition-[border-color,box-shadow] ease-out',
           'focus-visible:border-primary focus-visible:shadow-focus focus-visible:outline-none',
           'disabled:cursor-not-allowed disabled:opacity-45',
           error && 'border-error focus-visible:border-error',

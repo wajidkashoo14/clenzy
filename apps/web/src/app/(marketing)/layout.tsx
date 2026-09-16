@@ -6,6 +6,7 @@ import { MarketingChrome } from '@/components/layout/MarketingChrome';
 import { ServicesMegaMenu } from '@/components/marketing/ServicesMegaMenu';
 import { Toaster } from '@/components/ui/Toast';
 import { TooltipProvider } from '@/components/ui/Tooltip';
+import { BrandMark } from '@/components/layout/BrandMark';
 import { brand } from '@/content/brand';
 import { SERVICE_CATEGORIES } from '@/content/services';
 import { AuthSessionInit } from '@/features/auth/AuthSessionInit';
@@ -116,7 +117,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       <CartDrawer />
 
       <MarketingChrome
-        logo={<span className="font-heading text-primary text-xl font-semibold">{brand.name}</span>}
+        logo={<BrandMark />}
         navItems={NAV_ITEMS}
         phone={brand.phone}
         whatsappHref={brand.whatsappHref}

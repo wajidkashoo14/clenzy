@@ -9,8 +9,18 @@ import { fadeUp } from '@/lib/motion';
  * content is typically a Server Component; Next.js renders it on the server
  * and passes it here as `children`, so only this thin client boundary opts
  * into the animation — the content itself stays server-rendered.
+ * `delay` (seconds) offsets the entrance, e.g. to let a preceding section
+ * land first; the default keeps the original zero-delay behaviour.
  */
-export function Reveal({ children, className }: { children: ReactNode; className?: string }) {
+export function Reveal({
+  children,
+  className,
+  delay = 0,
+}: {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+}) {
   return (
     <motion.div
       className={className}
@@ -18,6 +28,7 @@ export function Reveal({ children, className }: { children: ReactNode; className
       whileInView="visible"
       viewport={{ once: true, margin: '-15% 0px' }}
       variants={fadeUp}
+      transition={{ delay }}
     >
       {children}
     </motion.div>
