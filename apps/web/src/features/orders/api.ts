@@ -30,7 +30,9 @@ export function getReview(orderNumber: string): Promise<{ review: ReviewPayload 
   return apiGet(`/api/v1/orders/${orderNumber}/review`);
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+// Same-origin proxy, not the raw API host — see lib/api-client.ts.
+const API_URL =
+  typeof window === 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000') : '';
 
 /** Invoice is a binary PDF, not JSON — fetched directly rather than through apiGet. */
 export async function downloadInvoice(orderNumber: string): Promise<void> {

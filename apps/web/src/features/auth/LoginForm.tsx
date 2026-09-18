@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { OTPInput } from '@/components/ui/OTPInput';
 import { requestOtp, verifyOtp } from '@/features/auth/api';
-import { ApiError, API_URL } from '@/lib/api-client';
+import { ApiError, API_ORIGIN } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/lib/toast';
 
@@ -177,7 +177,7 @@ export function LoginForm(): ReactNode {
           Google needs a top-level redirect; the API sets session cookies and
           lands back in the app. See docs/INTEGRATIONS.md §2.13. */}
       <Button asChild size="lg" variant="secondary">
-        <a href={`${API_URL}/api/v1/auth/google`}>
+        <a href={`${API_ORIGIN}/api/v1/auth/google`}>
           <svg viewBox="0 0 18 18" className="size-4.5" aria-hidden="true">
             <path
               fill="#4285F4"

@@ -96,7 +96,9 @@ export function commitCsvImport(input: CsvImportCommitInput): Promise<{ updated:
   return apiPost('/api/v1/admin/pricing/import/commit', input);
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+// Same-origin proxy, not the raw API host — see lib/api-client.ts.
+const API_URL =
+  typeof window === 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000') : '';
 
 /** CSV is a binary-ish text download, not JSON — fetched directly rather than through apiGet. */
 export async function downloadPricingCsv(): Promise<void> {

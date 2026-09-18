@@ -127,7 +127,7 @@ export function Header({
           <div className="flex items-center gap-1 sm:gap-2">
             <a
               href={`tel:${phone}`}
-              className="text-text-muted duration-fast ease-standard hover:text-text hidden items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors sm:flex"
+              className="text-text-muted duration-fast ease-standard hover:text-text hidden shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors sm:flex"
             >
               <Phone className="size-4" aria-hidden="true" />
               {phone}

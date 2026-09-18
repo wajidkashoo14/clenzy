@@ -1,6 +1,8 @@
 import { apiGet } from '@/lib/api-client';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+// Same-origin proxy, not the raw API host — see lib/api-client.ts.
+const API_URL =
+  typeof window === 'undefined' ? (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000') : '';
 
 export interface DateRange {
   from: string;

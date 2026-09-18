@@ -4,7 +4,18 @@
  * docs/ARCHITECTURE.md §5 for the intended final shape.
  */
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+// The API's real, absolute origin — needed for a genuine top-level
+// navigation (e.g. the Google OAuth "Continue with Google" link), which
+// must hit the API directly and identically on server and client render.
+// Never branch this one on `typeof window` — that would make SSR and
+// hydration render different hrefs for the same link.
+export const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
+
+// Browser calls go through this app's own /api/v1/* proxy instead (same-
+// origin, so the auth cookie always applies regardless of whether the web
+// app and API share a domain — see app/api/v1/[...path]/route.ts). Server-
+// side callers still need the real absolute URL.
+export const API_URL = typeof window === 'undefined' ? API_ORIGIN : '';
 
 export interface ApiErrorDetail {
   field?: string;
