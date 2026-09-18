@@ -4,7 +4,7 @@
 
 | Layer         | Choice                                                               | Verdict on your preference                    |
 | ------------- | -------------------------------------------------------------------- | --------------------------------------------- |
-| Frontend      | **Next.js 15 (App Router) + React 19 + TypeScript + Tailwind CSS 4** | ✅ Keep — correct for SEO-critical commerce   |
+| Frontend      | **Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS 4** | ✅ Keep — correct for SEO-critical commerce   |
 | UI primitives | **Radix UI** (headless) + custom components                          | Added — accessibility for free                |
 | State         | **Zustand** (cart, UI) + **TanStack Query** (server state)           | Added — do not use Redux here                 |
 | Forms         | **React Hook Form + Zod**                                            | Added — Zod schemas shared with the backend   |
@@ -61,7 +61,7 @@ npm workspaces monorepo — no Turborepo/Nx at MVP (added complexity, no payoff 
 ```
 clenzy/
 ├── apps/
-│   ├── web/                       # Next.js 15 — public site + customer dashboard + admin UI
+│   ├── web/                       # Next.js 16 — public site + customer dashboard + admin UI
 │   │   ├── src/
 │   │   │   ├── app/
 │   │   │   │   ├── (marketing)/          # Route group: public pages, static/ISR
@@ -149,7 +149,7 @@ clenzy/
 ```
                           ┌──────────────────────────┐
         Customer ────────▶│  Vercel Edge/CDN          │
-        (mobile/desktop)  │  Next.js 15 (apps/web)    │
+        (mobile/desktop)  │  Next.js 16 (apps/web)    │
                           │  SSG/ISR marketing pages  │
                           │  SSR account/admin pages  │
                           └───────────┬──────────────┘

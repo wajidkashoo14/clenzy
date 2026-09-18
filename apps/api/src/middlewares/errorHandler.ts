@@ -1,8 +1,31 @@
 import type { NextFunction, Request, Response } from 'express';
-import { ZodError } from 'zod';
 import { isProduction } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { AppError } from '../utils/AppError.js';
+
+interface ZodLikeError {
+  issues: { path: (string | number)[]; message: string }[];
+}
+
+/**
+ * Duck-typed rather than `instanceof ZodError` — this monorepo has multiple
+ * separate zod installations (apps/api, apps/web, and packages/shared each
+ * nest their own copy of zod@3.25.76, because a stray zod@4 hoisted at the
+ * workspace root from an ESLint plugin's dependency chain blocks npm from
+ * deduping them into one). Schemas built with packages/shared's zod
+ * instance throw ZodError objects whose prototype belongs to a *different*
+ * module instance than the one this file would import, so `instanceof`
+ * silently fails and every validation error was falling through to the
+ * generic 500 handler below. Checking the error's shape works regardless
+ * of which instance created it.
+ */
+function isZodLikeError(err: unknown): err is ZodLikeError {
+  return (
+    err instanceof Error &&
+    err.name === 'ZodError' &&
+    Array.isArray((err as { issues?: unknown }).issues)
+  );
+}
 
 /** Wraps an async route handler so rejected promises reach the error handler. */
 export function asyncHandler<Req extends Request = Request>(
@@ -27,12 +50,12 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
       success: false,
-      error: { code: err.code, message: err.message, details: err.details },
+      error: { code: err.code, message: err.message, details: err.details, ...err.extra },
     });
     return;
   }
 
-  if (err instanceof ZodError) {
+  if (isZodLikeError(err)) {
     res.status(400).json({
       success: false,
       error: {

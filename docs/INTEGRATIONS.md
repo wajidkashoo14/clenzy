@@ -229,6 +229,32 @@ Register `clenzy.in` at a registrar that supports `.in` (BigRock, GoDaddy, Namec
 
 ---
 
+### 2.13 Google OAuth — "Continue with Google" sign-in
+
+**What it does:** lets customers sign in with a Google account instead of (or alongside) phone OTP and email/password.
+**Why we need it:** one-tap identity for anyone already signed into Google — no SMS cost, no OTP delivery dependency, and a proofed email for order receipts.
+**Free tier:** fully free; Google charges nothing for OAuth.
+**Integration difficulty:** 🟢 Easy — one OAuth consent screen + one credential.
+**Code:** `apps/api/src/integrations/google/index.ts`, `auth.controller.ts` (`googleStart`/`googleCallback`), `auth.service.ts` (`loginWithGoogle`).
+
+**Steps**
+
+1. Go to `console.cloud.google.com` (reuse the `clenzy` project from §2.5 or create one).
+2. **APIs & Services → OAuth consent screen:** User type **External**, app name `Clenzy`, support email, developer email. Add the scopes `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile`. While in _Testing_ mode, add your Google account under **Test users**; _In production_ needs no verification for these non-sensitive scopes.
+3. **Credentials → Create credentials → OAuth client ID → Web application.**
+   - **Authorized JavaScript origins:** `http://localhost:3000`, `https://clenzy.in` (the flow itself doesn't use JS origins, but set them correctly anyway).
+   - **Authorized redirect URIs:** exactly `http://localhost:5000/api/v1/auth/google/callback` for dev, plus `https://api.clenzy.in/api/v1/auth/google/callback` for prod.
+4. Put the values in `apps/api/.env`:
+   - `GOOGLE_CLIENT_ID=....apps.googleusercontent.com`
+   - `GOOGLE_CLIENT_SECRET=GOCSPX-...`
+   - `API_BASE_URL=http://localhost:5000` (must match the redirect URI's origin; set the prod API origin in production).
+     Unset credentials = Google sign-in disabled — the login page still shows the button, and the API bounces the user back to `/login?authError=google_not_configured`.
+5. Account resolution is: existing `googleId` → same **verified email** (links Google onto the existing OTP/password account) → brand-new phone-less customer. Phone-less users add a number via Profile or checkout; `phone` is sparse-unique so many phone-less users can coexist.
+
+**Production considerations:** the `state` CSRF check is mandatory and already enforced via a 10-minute httpOnly cookie · keep the consent screen's scopes to the three above (any extra scope triggers Google's verification review) · rotating the client secret is a .env change only.
+
+---
+
 ## 3. Consolidated environment variables
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) §6 for the full list. Ground rules:

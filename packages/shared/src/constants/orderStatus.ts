@@ -30,6 +30,30 @@ export const TERMINAL_ORDER_STATUSES: readonly OrderStatus[] = [
   'REFUNDED',
 ];
 
+/**
+ * Human-readable labels — the single source of truth shared by the API
+ * (order-tracking's `statusLabel`) and the web app (`lib/orderStatus.ts`'s
+ * `ORDER_STATUS_META`, which adds icon/color on top of these).
+ */
+export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  PENDING_PAYMENT: 'Payment pending',
+  PLACED: 'Placed',
+  CONFIRMED: 'Confirmed',
+  PICKUP_SCHEDULED: 'Pickup scheduled',
+  PICKED_UP: 'Picked up',
+  PROCESSING: 'Processing',
+  QUALITY_CHECK: 'Quality check',
+  READY: 'Ready',
+  OUT_FOR_DELIVERY: 'Out for delivery',
+  DELIVERED: 'Delivered',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  PICKUP_FAILED: 'Pickup failed',
+  DELIVERY_FAILED: 'Delivery failed',
+  REFUND_PENDING: 'Refund pending',
+  REFUNDED: 'Refunded',
+};
+
 export const PAYMENT_STATUSES = [
   'pending',
   'paid',

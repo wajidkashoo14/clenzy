@@ -41,7 +41,7 @@ Animations are purposeful and restrained: Framer Motion for component and page m
 
 ### Technology stack (do not substitute anything without asking)
 
-**Frontend:** Next.js 15 App Router · React 19 · TypeScript (strict) · Tailwind CSS · Radix UI primitives · Zustand (client state) · TanStack Query (server state) · React Hook Form + Zod · Framer Motion · Lucide icons
+**Frontend:** Next.js 16 App Router · React 19 · TypeScript (strict) · Tailwind CSS · Radix UI primitives · Zustand (client state) · TanStack Query (server state) · React Hook Form + Zod · Framer Motion · Lucide icons
 **Backend:** Node.js · Express 5 · TypeScript · Mongoose · Zod · pino
 **Database:** MongoDB Atlas (replica set — transactions are required)
 **Payments:** Razorpay · **Email:** Resend · **SMS/OTP:** MSG91 · **Maps:** Google Maps Platform · **Media:** Cloudinary · **Errors:** Sentry · **Analytics:** GA4

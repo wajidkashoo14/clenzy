@@ -1,0 +1,192 @@
+'use client';
+
+import * as NavigationMenu from '@radix-ui/react-navigation-menu';
+import { Menu, Phone, ShoppingCart, User } from 'lucide-react';
+import { motion, useMotionValueEvent, useScroll } from 'motion/react';
+import Link from 'next/link';
+import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { NotificationBell } from '@/features/notifications/NotificationBell';
+import { useAuthStore } from '@/stores/authStore';
+import { useCartStore } from '@/stores/cartStore';
+import { cn } from '@/lib/cn';
+import { transitions } from '@/lib/motion';
+import type { NavGroup, NavLink } from './MobileNav';
+import { MobileNav } from './MobileNav';
+import { ThemeToggle } from './ThemeToggle';
+
+export interface HeaderNavItem {
+  label: string;
+  href?: string;
+  /** Two-column mega-menu content, supplied by the page that has the real catalog data. */
+  menuContent?: ReactNode;
+}
+
+export interface HeaderProps {
+  logo: ReactNode;
+  navItems: HeaderNavItem[];
+  phone: string;
+  whatsappHref: string;
+  accountHref: string;
+  bookingHref: string;
+  mobileNavGroups: NavGroup[];
+  accountLinks: NavLink[];
+  /** Starts transparent and solidifies after 40px of scroll — only pages with a hero should set this. */
+  transparentAtTop?: boolean;
+}
+
+const SOLIDIFY_THRESHOLD_PX = 40;
+
+/** See docs/DESIGN_SYSTEM.md §5 "Navigation" — desktop mega-menu + mobile drawer, one component. */
+export function Header({
+  logo,
+  navItems,
+  phone,
+  whatsappHref,
+  accountHref,
+  bookingHref,
+  mobileNavGroups,
+  accountLinks,
+  transparentAtTop = false,
+}: HeaderProps): ReactNode {
+  const [isSolid, setIsSolid] = useState(!transparentAtTop);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const { scrollY } = useScroll();
+  const user = useAuthStore((state) => state.user);
+  const cartCount = useCartStore((state) => state.itemCount());
+  const openCartDrawer = useCartStore((state) => state.openDrawer);
+
+  useMotionValueEvent(scrollY, 'change', (y) => {
+    if (transparentAtTop) setIsSolid(y > SOLIDIFY_THRESHOLD_PX);
+  });
+
+  return (
+    <>
+      <header className="sticky top-0 z-30 h-14 backdrop-blur-xl backdrop-saturate-150 lg:h-18">
+        {/* Frosted layer (behind content): surface tint + hairline + shadow,
+            fading in on scroll. Framer Motion can't tween into a
+            `color-mix()` string (it logs a type warning and snaps), so the
+            translucent surface is this static layer whose opacity animates —
+            same look, animatable value. aria-hidden: presentational. */}
+        <motion.div
+          aria-hidden="true"
+          initial={false}
+          animate={{
+            opacity: isSolid ? 1 : 0,
+            borderBottomColor: isSolid ? 'var(--color-border)' : 'rgba(0,0,0,0)',
+            boxShadow: isSolid ? 'var(--shadow-sm)' : '0 0 0 rgba(0,0,0,0)',
+          }}
+          transition={transitions.standard}
+          className="border-border bg-surface/80 absolute inset-0 border-b"
+        />
+        <div className="relative mx-auto flex h-full max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="focus-visible:shadow-focus shrink-0 focus-visible:outline-none">
+            {logo}
+          </Link>
+
+          <NavigationMenu.Root className="hidden lg:block" delayDuration={120}>
+            <NavigationMenu.List className="flex items-center gap-1">
+              {navItems.map((item) => (
+                <NavigationMenu.Item key={item.label}>
+                  {item.menuContent ? (
+                    <>
+                      <NavigationMenu.Trigger
+                        className={cn(
+                          'text-text flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium',
+                          'duration-base hover:bg-surface-alt hover:text-primary transition-[background-color,color] ease-out',
+                          'focus-visible:shadow-focus focus-visible:outline-none',
+                        )}
+                      >
+                        {item.label}
+                      </NavigationMenu.Trigger>
+                      <NavigationMenu.Content className="border-border bg-surface rounded-lg border p-5 shadow-lg">
+                        {item.menuContent}
+                      </NavigationMenu.Content>
+                    </>
+                  ) : (
+                    <NavigationMenu.Link asChild>
+                      <Link
+                        href={item.href ?? '#'}
+                        className={cn(
+                          'text-text block rounded-full px-3.5 py-2 text-sm font-medium',
+                          'duration-base hover:bg-surface-alt hover:text-primary transition-[background-color,color] ease-out',
+                          'focus-visible:shadow-focus focus-visible:outline-none',
+                        )}
+                      >
+                        {item.label}
+                      </Link>
+                    </NavigationMenu.Link>
+                  )}
+                </NavigationMenu.Item>
+              ))}
+            </NavigationMenu.List>
+            <NavigationMenu.Viewport className="absolute left-0 mt-2 w-full" />
+          </NavigationMenu.Root>
+
+          <div className="flex items-center gap-1 sm:gap-2">
+            <a
+              href={`tel:${phone}`}
+              className="text-text-muted duration-fast ease-standard hover:text-text hidden shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors sm:flex"
+            >
+              <Phone className="size-4" aria-hidden="true" />
+              {phone}
+            </a>
+
+            <ThemeToggle />
+
+            {user && <NotificationBell />}
+
+            <button
+              type="button"
+              onClick={openCartDrawer}
+              aria-label={`Cart${cartCount > 0 ? `, ${cartCount} items` : ''}`}
+              className="text-text duration-base hover:bg-primary-soft hover:text-primary focus-visible:shadow-focus relative flex size-10 items-center justify-center rounded-full transition-[background-color,color,transform] ease-out hover:scale-105 focus-visible:outline-none active:scale-95"
+            >
+              <ShoppingCart className="size-5" aria-hidden="true" />
+              {cartCount > 0 && (
+                <span
+                  key={cartCount}
+                  className="bg-accent text-ink absolute top-1 right-1 flex h-4 min-w-4 animate-[cart-badge-bump_var(--duration-base)_var(--ease-standard)] items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums"
+                  aria-hidden="true"
+                >
+                  {cartCount > 99 ? '99+' : cartCount}
+                </span>
+              )}
+            </button>
+
+            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+              <Link href={user ? accountHref : '/login'}>
+                <User className="size-4" aria-hidden="true" />
+                {user ? (user.name ?? 'Account') : 'Account'}
+              </Link>
+            </Button>
+
+            <Button asChild size="sm" className="hidden md:inline-flex">
+              <Link href={bookingHref}>Book a pickup</Link>
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Open menu"
+              className="text-text duration-base hover:bg-primary-soft hover:text-primary focus-visible:shadow-focus flex size-10 items-center justify-center rounded-full transition-[background-color,color,transform] ease-out hover:scale-105 focus-visible:outline-none active:scale-95 lg:hidden"
+            >
+              <Menu className="size-5" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <MobileNav
+        open={mobileNavOpen}
+        onOpenChange={setMobileNavOpen}
+        navGroups={mobileNavGroups}
+        bookingHref={bookingHref}
+        phone={phone}
+        whatsappHref={whatsappHref}
+        accountLinks={accountLinks}
+      />
+    </>
+  );
+}

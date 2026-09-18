@@ -20,6 +20,57 @@ const envSchema = z.object({
     .min(1, 'CORS_ORIGINS is required, e.g. "http://localhost:3000".')
     .transform((value) => value.split(',').map((origin) => origin.trim())),
   COOKIE_DOMAIN: z.string().default('localhost'),
+  // The customer-facing web app's origin — used to build absolute deep links
+  // in emails/SMS (a relative path breaks once the recipient isn't already
+  // on the site). See docs/PAYMENTS_AND_NOTIFICATIONS.md §3.3.
+  WEB_APP_URL: z.string().default('http://localhost:3000'),
+  // This API's own externally-reachable origin — used to build the OAuth
+  // redirect_uri for Google sign-in (Google requires an absolute URL).
+  // See docs/INTEGRATIONS.md §2.13.
+  API_BASE_URL: z.string().default('http://localhost:5000'),
+  // Optional — see apps/api/src/integrations/google/index.ts and
+  // docs/INTEGRATIONS.md §2.13. Unset means Google sign-in is disabled and
+  // its start endpoint redirects back to the web app with an error.
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  // Shared with apps/web's REVALIDATE_SECRET — must match exactly. Optional:
+  // unset means catalog/pricing admin mutations skip the ISR-busting webhook
+  // call and pages fall back to their normal revalidate-on-interval TTL.
+  REVALIDATE_SECRET: z.string().optional(),
+  JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters.'),
+  JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters.'),
+  // Optional — see apps/api/src/integrations/msg91/index.ts. Unset means the
+  // console-logging fake adapter is used (no DLT registration yet; see
+  // docs/DEVELOPMENT_PLAN.md Phase 4).
+  MSG91_AUTH_KEY: z.string().optional(),
+  MSG91_SENDER_ID: z.string().optional(),
+  MSG91_OTP_TEMPLATE_ID: z.string().optional(),
+  // One DLT-registered template id per "SMS justified" notification event —
+  // see docs/PAYMENTS_AND_NOTIFICATIONS.md §3.2 and config/notifications.ts.
+  // Unset means that event's SMS is skipped (in-app/email still send) —
+  // DLT template approval is an external dependency, not a code one; see
+  // docs/DEVELOPMENT_PLAN.md Phase 10 "Dependencies".
+  MSG91_TEMPLATE_ORDER_PLACED: z.string().optional(),
+  MSG91_TEMPLATE_PAYMENT_FAILED: z.string().optional(),
+  MSG91_TEMPLATE_PICKUP_REMINDER: z.string().optional(),
+  MSG91_TEMPLATE_PRICE_REVISION: z.string().optional(),
+  MSG91_TEMPLATE_OUT_FOR_DELIVERY: z.string().optional(),
+  MSG91_TEMPLATE_PICKUP_DELIVERY_FAILED: z.string().optional(),
+  MSG91_TEMPLATE_ORDER_CANCELLED: z.string().optional(),
+  MSG91_TEMPLATE_REFUND_COMPLETED: z.string().optional(),
+  // Optional — see apps/api/src/integrations/resend/index.ts. Unset means
+  // the console-logging fake adapter is used (no domain/API key yet; see
+  // docs/INTEGRATIONS.md §2.4).
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('Clenzy <orders@clenzy.dev>'),
+  // Optional — see apps/api/src/integrations/razorpay/index.ts. Unset means
+  // the console-logging fake adapter is used (KYC pending; see
+  // docs/DEVELOPMENT_PLAN.md Phase 8 and docs/INTEGRATIONS.md §2.2).
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  // Needed even with the fake adapter — it signs/verifies simulated webhooks
+  // the same way a real one would, so that code path is genuinely exercised.
+  RAZORPAY_WEBHOOK_SECRET: z.string().default('dev-webhook-secret-not-for-production-use'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -35,6 +86,20 @@ function loadEnv(): Env {
       console.error(`  ${issue.path.join('.')}: ${issue.message}`);
     }
     console.error('\nCopy apps/api/.env.example to apps/api/.env and fill in real values.\n');
+    process.exit(1);
+  }
+
+  // See docs/PAYMENTS_AND_NOTIFICATIONS.md §1.7: "Use test keys in dev/staging
+  // and live keys only in production — enforce this in config/env.ts by
+  // rejecting a live key when NODE_ENV !== 'production'." Checked both ways —
+  // a live key is just as dangerous outside prod as a test key is inside it.
+  const isLiveKey = parsed.data.RAZORPAY_KEY_ID?.startsWith('rzp_live_');
+  if (isLiveKey && parsed.data.NODE_ENV !== 'production') {
+    console.error(`\n✖ RAZORPAY_KEY_ID is a live key but NODE_ENV=${parsed.data.NODE_ENV}.\n`);
+    process.exit(1);
+  }
+  if (!isLiveKey && parsed.data.RAZORPAY_KEY_ID && parsed.data.NODE_ENV === 'production') {
+    console.error('\n✖ RAZORPAY_KEY_ID is a test key (rzp_test_...) but NODE_ENV=production.\n');
     process.exit(1);
   }
 

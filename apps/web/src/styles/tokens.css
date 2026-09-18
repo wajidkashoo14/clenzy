@@ -1,0 +1,139 @@
+/**
+ * Design tokens — the single source of color, radius, shadow, and motion
+ * values for the whole app. See docs/DESIGN_SYSTEM.md §2–4 and
+ * docs/ANIMATION_SYSTEM.md §3. Never hardcode a hex value or a raw
+ * duration/easing in a component — reference these tokens (via the Tailwind
+ * utilities they're wired into in globals.css, or via lib/motion.ts for
+ * Framer Motion).
+ *
+ * Light-only for MVP (see DESIGN_SYSTEM.md §2) — but every color lives here
+ * as a token specifically so a future dark mode is a token swap, not a
+ * component-wide refactor.
+ */
+:root {
+  color-scheme: light;
+
+  /* Color — core palette. The brand family stays teal/emerald ("clean, fresh
+     fabric care") but tuned brighter and more saturated than the original
+     MVP palette so gradients and glows read as premium rather than muted. */
+  --color-primary: #0f766e;
+  --color-primary-hover: #0b5d57;
+  --color-primary-soft: #dcf0ec;
+  --color-secondary: #2578a0;
+  --color-secondary-soft: #e3f1f7;
+  --color-accent: #e28c2a;
+  --color-accent-soft: #fcf0dd;
+  --color-bg: #f6f9f8;
+  --color-surface: #ffffff;
+  --color-surface-alt: #eef4f2;
+  --color-border: #e0e8e5;
+  --color-border-strong: #c7d4d0;
+  --color-text: #131f1c;
+  --color-text-muted: #5a6b66;
+  --color-text-inverse: #f6f9f8;
+
+  /* Color — text on deep-ink surfaces (footer, CTA band). Stable across
+     themes: those surfaces stay dark in light AND dark mode, so their text
+     must not flip with --color-text-inverse. */
+  --color-on-ink: #eaf2ef;
+
+  /* Color — deep brand ink for full-bleed surfaces (footer, CTA band). */
+  --color-ink: #0b1f1c;
+
+  /* Color — semantic */
+  --color-success: #1e9e5a;
+  --color-success-soft: #e2f5ea;
+  --color-warning: #cf8a1d;
+  --color-warning-soft: #fbf1dc;
+  --color-error: #d24b4b;
+  --color-error-soft: #fbe7e7;
+  --color-info: #2578a0;
+  --color-info-soft: #e3f1f7;
+
+  /* Radius — generous, for a soft friendly feel app-wide. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 28px;
+  --radius-full: 999px;
+
+  /* Shadow — layered and tinted with the brand hue (never pure black), plus
+     a "glow" pair used sparingly on primary CTAs. */
+  --shadow-sm: 0 1px 2px rgba(11, 45, 40, 0.06);
+  --shadow-md: 0 1px 3px rgba(11, 45, 40, 0.05), 0 4px 16px -2px rgba(11, 45, 40, 0.08);
+  --shadow-lg: 0 20px 48px -12px rgba(11, 45, 40, 0.18);
+  --shadow-glow: 0 8px 20px -6px rgba(15, 118, 110, 0.45);
+  --shadow-glow-lg: 0 12px 32px -8px rgba(15, 118, 110, 0.55);
+  --shadow-focus: 0 0 0 3px rgba(15, 118, 110, 0.3);
+
+  /* Motion — durations (ms, for CSS transitions) */
+  --duration-instant: 100ms;
+  --duration-fast: 160ms;
+  --duration-base: 240ms;
+  --duration-slow: 360ms;
+  --duration-slower: 520ms;
+
+  /* Motion — easing. `--ease-out`/`--ease-standard`/`--ease-in` are the
+     originals every existing component references; `--ease-soft` and
+     `--ease-spring` are the 2026-refresh additions for entrances and
+     playful micro-interactions respectively. */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/**
+ * Dark theme — the token swap this file was architected for. Set
+ * `data-theme="dark"` on <html> (done pre-hydration by the inline script in
+ * app/layout.tsx, persisted by components/layout/ThemeToggle.tsx).
+ *
+ * Design notes:
+ * - Surfaces are deep green-blacks (never pure black) so the brand tint holds.
+ * - Brand hues BRIGHTEN, not darken: on dark surfaces they're used as text
+ *   (links, badge labels) and need the contrast lift. Fills keep enough depth
+ *   for --color-text-inverse, which flips dark so text on brand fills stays
+ *   readable on the brighter hues.
+ * - --color-on-ink does NOT flip: ink surfaces are dark in both themes.
+ */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-primary: #2fbfae;
+  --color-primary-hover: #4fd0c0;
+  --color-primary-soft: #0d2c27;
+  --color-secondary: #5fb0da;
+  --color-secondary-soft: #0e2531;
+  --color-accent: #e9a94e;
+  --color-accent-soft: #2f2310;
+  --color-bg: #0b1310;
+  --color-surface: #101b17;
+  --color-surface-alt: #17241f;
+  --color-border: #24332d;
+  --color-border-strong: #384a43;
+  --color-text: #e7efec;
+  --color-text-muted: #98aea7;
+  --color-text-inverse: #07211b;
+
+  --color-on-ink: #eaf2ef;
+  --color-ink: #060d0b;
+
+  --color-success: #41c98a;
+  --color-success-soft: #0c2a1d;
+  --color-warning: #e3b45c;
+  --color-warning-soft: #2c2410;
+  --color-error: #ef6f6f;
+  --color-error-soft: #341515;
+  --color-info: #5fb0da;
+  --color-info-soft: #0e2531;
+
+  /* Shadows — near-invisible tints read as mud on dark; use black depth and
+     a stronger brand glow instead. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.35), 0 4px 16px -2px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 48px -12px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 8px 20px -6px rgba(47, 191, 174, 0.35);
+  --shadow-glow-lg: 0 12px 32px -8px rgba(47, 191, 174, 0.45);
+  --shadow-focus: 0 0 0 3px rgba(47, 191, 174, 0.45);
+}
