@@ -67,6 +67,7 @@ authRouter.post('/otp/verify', otpVerifyLimiter, authController.verifyOtp);
 authRouter.post('/login', loginLimiter, authController.login);
 authRouter.get('/google', googleLimiter, authController.googleStart);
 authRouter.get('/google/callback', googleLimiter, authController.googleCallback);
+authRouter.post('/google/exchange', googleLimiter, authController.googleExchange);
 authRouter.post('/refresh', authController.refresh);
 authRouter.post('/logout', requireAuth, authController.logout);
 authRouter.post('/logout-all', requireAuth, authController.logoutAll);
