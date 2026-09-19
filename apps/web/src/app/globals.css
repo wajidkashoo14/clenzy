@@ -131,6 +131,14 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Tailwind v4 dropped preflight's old default of `cursor: pointer` on
+   buttons — restore it globally instead of adding `cursor-pointer` to every
+   button in the app. */
+button:not(:disabled),
+[role='button']:not(:disabled) {
+  cursor: pointer;
+}
+
 ::selection {
   background: color-mix(in srgb, var(--color-primary) 18%, transparent);
   color: var(--color-text);

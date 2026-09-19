@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { BottomBar } from '@/components/layout/BottomBar';
 import { Footer } from '@/components/layout/Footer';
 import { MarketingChrome } from '@/components/layout/MarketingChrome';
+import { TopBar } from '@/components/layout/TopBar';
 import { ServicesMegaMenu } from '@/components/marketing/ServicesMegaMenu';
 import { Toaster } from '@/components/ui/Toast';
 import { TooltipProvider } from '@/components/ui/Tooltip';
@@ -115,6 +116,8 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       <CartEstimateSync />
       <Toaster />
       <CartDrawer />
+
+      <TopBar phone={brand.phone} email={brand.email} hours={brand.supportHours} />
 
       <MarketingChrome
         logo={<BrandMark />}

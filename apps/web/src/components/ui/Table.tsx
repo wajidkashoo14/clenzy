@@ -268,9 +268,11 @@ export function Table<T>({
                 />
               )}
               {columns.map((col) => (
-                <div key={col.key} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-text-muted">{col.mobileLabel ?? col.header}</span>
-                  <span className="text-text text-right">{col.render(row)}</span>
+                <div key={col.key} className="flex items-start justify-between gap-3 text-sm">
+                  <span className="text-text-muted shrink-0">{col.mobileLabel ?? col.header}</span>
+                  <span className="text-text min-w-0 text-right break-words">
+                    {col.render(row)}
+                  </span>
                 </div>
               ))}
             </div>
