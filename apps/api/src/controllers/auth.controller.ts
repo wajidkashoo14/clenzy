@@ -19,6 +19,7 @@ import { asyncHandler } from '../middlewares/errorHandler.js';
 import * as authService from '../services/auth.service.js';
 import { AppError } from '../utils/AppError.js';
 import { clearAuthCookies, setAuthCookies } from '../utils/cookies.js';
+import { consumeOAuthHandoff, createOAuthHandoff } from '../utils/oauthHandoff.js';
 
 function sessionMeta(req: Request): { userAgent?: string; ip?: string } {
   return { userAgent: req.headers['user-agent'], ip: req.ip };
@@ -80,14 +81,27 @@ export const googleCallback = asyncHandler(async (req: Request, res: Response) =
       profile,
       sessionMeta(req),
     );
-    setAuthCookies(res, accessToken, refreshToken);
-    res.redirect(`${env.WEB_APP_URL}/account`);
+    // This redirect is a real browser navigation to the API's own origin, so
+    // cookies set here would be scoped to the API's domain, not the web
+    // app's. Hand off to the web app's own origin to set them there instead
+    // — see utils/oauthHandoff.ts and web's app/api/auth/google/finish/route.ts.
+    const handoff = createOAuthHandoff(accessToken, refreshToken);
+    res.redirect(`${env.WEB_APP_URL}/api/auth/google/finish?code=${handoff}`);
   } catch (error) {
     // Never leave the user on a bare API JSON error — land them on the login
     // page with a readable reason instead.
     logger.error({ err: error }, 'Google sign-in failed');
     redirectToLogin(res, 'google_failed');
   }
+});
+
+// eslint-disable-next-line @typescript-eslint/require-await -- asyncHandler's signature requires a Promise-returning fn; this path is pure sync logic.
+export const googleExchange = asyncHandler(async (req: Request, res: Response) => {
+  const code = (req.body as Record<string, unknown> | undefined)?.code;
+  const tokens = typeof code === 'string' ? consumeOAuthHandoff(code) : null;
+  if (!tokens) throw AppError.unauthorized('Sign-in link expired or already used.');
+  setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+  res.status(200).json({ success: true, data: { exchanged: true } });
 });
 
 export const requestOtp = asyncHandler(async (req: Request, res: Response) => {
