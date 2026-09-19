@@ -13,6 +13,7 @@ import { Banner, type BannerDocument } from '../models/Banner.js';
 import { Faq, type FaqDocument } from '../models/Faq.js';
 import { Testimonial, type TestimonialDocument } from '../models/Testimonial.js';
 import { logAudit } from './auditLog.service.js';
+import { triggerCatalogRevalidation } from './revalidation.service.js';
 import { AppError } from '../utils/AppError.js';
 
 interface Actor {
@@ -57,6 +58,7 @@ export async function createFaq(actor: Actor, input: CreateFaqInput): Promise<Fa
     entityId: String(faq._id),
     after: faq.toObject(),
   });
+  triggerCatalogRevalidation();
   return faq.toObject();
 }
 
@@ -83,6 +85,7 @@ export async function updateFaq(
     before,
     after: faq.toObject(),
   });
+  triggerCatalogRevalidation();
   return faq.toObject();
 }
 
@@ -98,6 +101,7 @@ export async function reorderFaqs(actor: Actor, input: ReorderContentInput): Pro
     entityId: 'bulk',
     after: { orderedIds: input.orderedIds },
   });
+  triggerCatalogRevalidation();
 }
 
 export async function deactivateFaq(actor: Actor, id: string): Promise<FaqDocument> {
@@ -118,6 +122,7 @@ export async function deactivateFaq(actor: Actor, id: string): Promise<FaqDocume
     before,
     after: faq.toObject(),
   });
+  triggerCatalogRevalidation();
   return faq.toObject();
 }
 
@@ -142,6 +147,7 @@ export async function createTestimonial(
     entityId: String(testimonial._id),
     after: testimonial.toObject(),
   });
+  triggerCatalogRevalidation();
   return testimonial.toObject();
 }
 
@@ -167,6 +173,7 @@ export async function updateTestimonial(
     before,
     after: testimonial.toObject(),
   });
+  triggerCatalogRevalidation();
   return testimonial.toObject();
 }
 
@@ -191,6 +198,7 @@ export async function deactivateTestimonial(
     before,
     after: testimonial.toObject(),
   });
+  triggerCatalogRevalidation();
   return testimonial.toObject();
 }
 
@@ -215,6 +223,7 @@ export async function createBanner(
     entityId: String(banner._id),
     after: banner.toObject(),
   });
+  triggerCatalogRevalidation();
   return banner.toObject();
 }
 
@@ -240,6 +249,7 @@ export async function updateBanner(
     before,
     after: banner.toObject(),
   });
+  triggerCatalogRevalidation();
   return banner.toObject();
 }
 
@@ -261,5 +271,6 @@ export async function deactivateBanner(actor: Actor, id: string): Promise<Banner
     before,
     after: banner.toObject(),
   });
+  triggerCatalogRevalidation();
   return banner.toObject();
 }
