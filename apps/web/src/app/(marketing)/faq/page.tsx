@@ -8,7 +8,7 @@ import {
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Container } from '@/components/layout/Container';
 import { brand } from '@/content/brand';
-import { FAQS } from '@/content/faqs';
+import { getFaqs } from '@/lib/content-api';
 import { breadcrumbJsonLd, buildMetadata, faqPageJsonLd, JsonLd } from '@/lib/seo';
 
 export const metadata: Metadata = buildMetadata({
@@ -24,14 +24,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   care: 'Item care',
 };
 
-export default function FaqPage() {
+export default async function FaqPage() {
   const breadcrumbItems = [{ label: 'Home', href: '/' }, { label: 'FAQ' }];
-  const categories = Array.from(new Set(FAQS.map((f) => f.category)));
+  const faqs = await getFaqs();
+  const categories = Array.from(new Set(faqs.map((f) => f.category)));
 
   return (
     <>
       <JsonLd data={breadcrumbJsonLd(breadcrumbItems)} />
-      <JsonLd data={faqPageJsonLd(FAQS)} />
+      <JsonLd data={faqPageJsonLd(faqs)} />
 
       <Container className="py-10 lg:py-16">
         <Breadcrumb items={breadcrumbItems} />
@@ -49,12 +50,17 @@ export default function FaqPage() {
                 {CATEGORY_LABELS[category] ?? category}
               </h2>
               <Accordion type="single" collapsible className="mt-3 max-w-2xl">
-                {FAQS.filter((faq) => faq.category === category).map((faq) => (
-                  <AccordionItem key={faq.question} value={faq.question}>
-                    <AccordionTrigger>{faq.question}</AccordionTrigger>
-                    <AccordionContent>{faq.answer}</AccordionContent>
-                  </AccordionItem>
-                ))}
+                {faqs
+                  .filter((faq) => faq.category === category)
+                  .map((faq) => (
+                    <AccordionItem key={faq._id} value={faq._id}>
+                      <AccordionTrigger>{faq.question}</AccordionTrigger>
+                      <AccordionContent>
+                        {/* answer is rich text, sanitized server-side on write — see packages/shared/src/schemas/adminContent.ts */}
+                        <div dangerouslySetInnerHTML={{ __html: faq.answer }} />
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
               </Accordion>
             </div>
           ))}

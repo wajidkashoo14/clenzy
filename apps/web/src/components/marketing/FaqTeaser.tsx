@@ -8,10 +8,11 @@ import {
 } from '@/components/ui/Accordion';
 import { SectionHeading } from '@/components/marketing/SectionHeading';
 import { Button } from '@/components/ui/Button';
-import { FAQS } from '@/content/faqs';
+import { getFaqs } from '@/lib/content-api';
 
-export function FaqTeaser(): ReactNode {
-  const preview = FAQS.slice(0, 4);
+export async function FaqTeaser(): Promise<ReactNode> {
+  const faqs = await getFaqs();
+  const preview = faqs.slice(0, 4);
 
   return (
     <section className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
@@ -26,9 +27,12 @@ export function FaqTeaser(): ReactNode {
 
         <Accordion type="single" collapsible>
           {preview.map((faq) => (
-            <AccordionItem key={faq.question} value={faq.question}>
+            <AccordionItem key={faq._id} value={faq._id}>
               <AccordionTrigger>{faq.question}</AccordionTrigger>
-              <AccordionContent>{faq.answer}</AccordionContent>
+              <AccordionContent>
+                {/* answer is rich text, sanitized server-side on write — see packages/shared/src/schemas/adminContent.ts */}
+                <div dangerouslySetInnerHTML={{ __html: faq.answer }} />
+              </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>

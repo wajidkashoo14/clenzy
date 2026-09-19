@@ -1,44 +1,22 @@
 import { Star } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { SectionHeading } from '@/components/marketing/SectionHeading';
 import { Stagger, StaggerItem } from '@/components/marketing/Stagger';
-import type { ReactNode } from 'react';
+import { getTestimonials } from '@/lib/content-api';
 
-/**
- * PLACEHOLDER — these are illustrative example quotes, not real customer
- * reviews, and are deliberately NOT attributed to specific fabricated names
- * to avoid ever reading as genuine testimonials if this ships as-is. Replace
- * with real reviews once the review system (docs/DEVELOPMENT_PLAN.md
- * Phase 9+) is live — see docs/PROJECT_REQUIREMENTS.md's rule against
- * fabricated reviews presented as genuine.
- */
-const EXAMPLE_QUOTES = [
-  {
-    quote: 'The pickup slot actually matched when they showed up — small thing, but it matters.',
-    context: 'Example quote — Rajbagh area',
-  },
-  {
-    quote:
-      'My pashmina needed real care, not a standard dry-clean cycle. This is the first place that got that right.',
-    context: 'Example quote — Lal Chowk area',
-  },
-  {
-    quote: 'Price was exactly what I was quoted. No surprise add-ons at delivery.',
-    context: 'Example quote — Nishat area',
-  },
-];
+/** Empty when no testimonials are marked active in the admin dashboard yet — see docs/PROJECT_REQUIREMENTS.md's rule against fabricated reviews presented as genuine, so this never falls back to placeholder quotes. */
+export async function Testimonials(): Promise<ReactNode> {
+  const testimonials = await getTestimonials();
+  if (testimonials.length === 0) return null;
 
-export function Testimonials(): ReactNode {
   return (
     <section className="border-border bg-surface-alt/50 border-y">
       <div className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <SectionHeading
-          eyebrow="What to expect"
-          title="Illustrative examples — real reviews coming soon"
-        />
+        <SectionHeading eyebrow="What customers say" title="Real feedback from Srinagar" />
 
         <Stagger className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {EXAMPLE_QUOTES.map((item) => (
-            <StaggerItem key={item.quote} className="h-full">
+          {testimonials.map((testimonial) => (
+            <StaggerItem key={testimonial._id} className="h-full">
               <figure className="border-border bg-surface duration-base relative h-full rounded-xl border p-5 shadow-sm transition-[transform,box-shadow] ease-out hover:-translate-y-1 hover:shadow-lg">
                 {/* Decorative oversized quote mark */}
                 <span
@@ -49,11 +27,17 @@ export function Testimonials(): ReactNode {
                 </span>
                 <div className="text-accent flex gap-0.5" aria-hidden="true">
                   {Array.from({ length: 5 }, (_, i) => (
-                    <Star key={i} className="size-3.5 fill-current" />
+                    <Star
+                      key={i}
+                      className={i < testimonial.rating ? 'size-3.5 fill-current' : 'size-3.5'}
+                    />
                   ))}
                 </div>
-                <blockquote className="text-text mt-3 text-sm">“{item.quote}”</blockquote>
-                <figcaption className="text-text-muted mt-3 text-[13px]">{item.context}</figcaption>
+                <blockquote className="text-text mt-3 text-sm">“{testimonial.text}”</blockquote>
+                <figcaption className="text-text-muted mt-3 text-[13px]">
+                  {testimonial.name}
+                  {testimonial.area ? ` — ${testimonial.area}` : ''}
+                </figcaption>
               </figure>
             </StaggerItem>
           ))}
