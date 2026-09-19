@@ -158,7 +158,7 @@ export function LoginForm(): ReactNode {
         type="tel"
         inputMode="tel"
         autoComplete="tel"
-        placeholder="98765 43210"
+        placeholder="Your mobile number"
         value={phone}
         error={phoneError}
         onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}

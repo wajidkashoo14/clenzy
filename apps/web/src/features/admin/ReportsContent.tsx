@@ -113,7 +113,7 @@ function RevenueTab({ range }: { range: DateRange }): ReactNode {
               <Stat label="Net" value={formatRupees(report.net)} />
             </div>
           </Card>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Card>
               <h3 className="text-text mb-2 text-sm font-semibold">By category</h3>
               <Table

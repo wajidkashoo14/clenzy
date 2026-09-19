@@ -52,7 +52,10 @@ export function Tabs({
 export function TabsList({ className, ...props }: TabsPrimitive.TabsListProps): ReactNode {
   return (
     <TabsPrimitive.List
-      className={cn('bg-surface-alt inline-flex items-center gap-1 rounded-full p-1', className)}
+      className={cn(
+        'bg-surface-alt flex max-w-full items-center gap-1 overflow-x-auto rounded-full p-1',
+        className,
+      )}
       {...props}
     />
   );
