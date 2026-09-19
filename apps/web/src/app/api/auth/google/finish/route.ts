@@ -28,7 +28,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL('/login?authError=google_failed', request.url));
   }
 
-  const response = NextResponse.redirect(new URL('/account', request.url));
+  const response = NextResponse.redirect(new URL('/', request.url));
   for (const setCookie of apiResponse.headers.getSetCookie()) {
     response.headers.append('Set-Cookie', setCookie);
   }

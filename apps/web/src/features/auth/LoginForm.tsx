@@ -82,7 +82,7 @@ export function LoginForm(): ReactNode {
       const { user } = await verifyOtp(phone, submittedCode, requestId);
       setUser(user);
       toast.success(user.isNewUser ? 'Welcome to Clenzy!' : 'Welcome back!');
-      router.push(searchParams.get('redirect') || '/account');
+      router.push(searchParams.get('redirect') || '/');
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Could not verify the code.';
       setCodeError(message);
